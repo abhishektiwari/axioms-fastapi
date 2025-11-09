@@ -202,7 +202,7 @@ jobs:
           
           **From GitHub Release:**
           \`\`\`bash
-          pip install https://github.com/${{ github.repository }}/releases/download/${tag}/axioms-fastapi-${version}-py3-none-any.whl
+          pip install https://github.com/${{ github.repository }}/releases/download/${tag}/axioms_fastapi_${version}-py3-none-any.whl
           \`\`\`
           
           ### Available Artifacts
