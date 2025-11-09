@@ -169,7 +169,7 @@ jobs:
           
           **PIP:**
           ```bash
-          pip install https://github.com/${{ github.repository }}/releases/download/${{ needs.generate-version.outputs.github_tag }}/axioms-fastapi-${{ needs.generate-version.outputs.version }}-py3-none-any.whl
+          pip install https://github.com/${{ github.repository }}/releases/download/${{ needs.generate-version.outputs.github_tag }}/axioms_fastapi-${{ needs.generate-version.outputs.version }}-py3-none-any.whl
           ```
           
           **PyPI:**
