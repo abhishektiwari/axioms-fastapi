@@ -43,7 +43,7 @@ jobs:
         TIMESTAMP=$(date +%s)
 
         # Use PEP 440 compatible format with PR number and timestamp
-        PRERELEASE_VERSION="${BASE_VERSION}.rc${PR_NUMBER}${TIMESTAMP}"
+        PRERELEASE_VERSION="${BASE_VERSION}rc${PR_NUMBER}${TIMESTAMP}"
         PRERELEASE_TAG="v${PRERELEASE_VERSION}"
 
         # GitHub tag for releases (with PR number and timestamp)
