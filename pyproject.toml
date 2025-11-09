@@ -1,0 +1,108 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools_scm[toml]>=6.2", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "axioms-fastapi"
+dynamic = ["version"]
+description = "OAuth2/OIDC authentication and authorization for FastAPI APIs"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Abhishek Tiwari", email = "abhishek@abstractclass.io" }
+]
+keywords = [
+    "fastapi",
+    "oauth2",
+    "oidc",
+    "jwt",
+    "authentication",
+    "authorization",
+    "axioms",
+    "security",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Security",
+    "Framework :: FastAPI",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "fastapi>=0.100.0",
+    "pyjwt>=2.8.0",
+    "jwcrypto>=1.5.0",
+    "python-box>=7.0.0",
+    "pydantic-settings>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.0",
+    "httpx>=0.24.0",
+    "ruff>=0.1.0",
+    "build>=1.0.0",
+    "twine>=4.0.0",
+    "sphinx>=7.0.0",
+    "sphinx-book-theme>=1.0.0",
+    "sphinx-autobuild>=2021.3.14",
+    "sphinx-copybutton>=0.5.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/abhishektiwari/axioms-fastapi"
+Documentation = "https://axioms-fastapi.abhishek-tiwari.com"
+Repository = "https://github.com/abhishektiwari/axioms-fastapi"
+Issues = "https://github.com/abhishektiwari/axioms-fastapi/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+axioms_fastapi = ["py.typed"]
+
+[tool.setuptools_scm]
+write_to = "src/axioms_fastapi/_version.py"
+version_scheme = "no-guess-dev"
+local_scheme = "no-local-version"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=axioms_fastapi --cov-report=term-missing"
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = []
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
