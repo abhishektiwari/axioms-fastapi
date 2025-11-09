@@ -1,8 +1,17 @@
-# axioms-fastapi
-
+# axioms-fastapi ![PyPI](https://img.shields.io/pypi/v/axioms-fastapi) ![Pepy Total Downloads](https://img.shields.io/pepy/dt/axioms-fastapi)
 OAuth2/OIDC authentication and authorization for FastAPI APIs. Supports authentication and claim-based fine-grained authorization (scopes, roles, permissions) using JWT tokens.
 
 Works with access tokens issued by various authorization servers including [AWS Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html), [Auth0](https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles), [Okta](https://developer.okta.com/docs/api/oauth2/), [Microsoft Entra](https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles), etc.
+
+![GitHub Release](https://img.shields.io/github/v/release/abhishektiwari/axioms-fastapi)
+![GitHub Actions Test Workflow Status](https://img.shields.io/github/actions/workflow/status/abhishektiwari/axioms-fastapi/test.yml?label=tests)
+![PyPI - Version](https://img.shields.io/pypi/v/axioms-fastapi)
+![Python Wheels](https://img.shields.io/pypi/wheel/axioms-fastapi)
+![Python Versions](https://img.shields.io/pypi/pyversions/axioms-fastapi?logo=python&logoColor=white)
+![GitHub last commit](https://img.shields.io/github/last-commit/abhishektiwari/axioms-fastapi)
+![PyPI - Status](https://img.shields.io/pypi/status/axioms-fastapi)
+![License](https://img.shields.io/github/license/abhishektiwari/axioms-fastapi)
+![PyPI Downloads](https://img.shields.io/pepy/dt/axioms-fastapi?label=PyPI%20Downloads)
 
 ## Features
 
