@@ -162,7 +162,7 @@ jobs:
           ## Available Downloads
           
           ### Python Package
-          - Wheel: `axioms-fastapi-${{ needs.generate-version.outputs.version }}-py3-none-any.whl`
+          - Wheel: `axioms_fastapi-${{ needs.generate-version.outputs.version }}-py3-none-any.whl`
           - Source: `axioms-fastapi-${{ needs.generate-version.outputs.version }}.tar.gz`
           
           ## Installation
