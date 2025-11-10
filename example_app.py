@@ -11,14 +11,13 @@ Test with:
 """
 
 from fastapi import FastAPI, Depends
-from fastapi.responses import JSONResponse
 from axioms_fastapi import (
     init_axioms,
     require_auth,
     require_scopes,
     require_roles,
     require_permissions,
-    AxiomsHTTPException,
+    register_axioms_exception_handler,
 )
 
 # Create FastAPI application
@@ -39,16 +38,8 @@ init_axioms(
     # AXIOMS_PERMISSIONS_CLAIMS=["permissions", "cognito:roles"],
 )
 
-
-# Exception handler for Axioms errors
-@app.exception_handler(AxiomsHTTPException)
-async def axioms_exception_handler(request, exc: AxiomsHTTPException):
-    """Handle authentication and authorization errors."""
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=exc.detail,
-        headers=exc.headers if exc.headers else {},
-    )
+# Register exception handler for Axioms errors
+register_axioms_exception_handler(app)
 
 
 # Public endpoint - no authentication required

@@ -21,20 +21,22 @@ Example::
         return {"message": "Admin access"}
 """
 
-from typing import List, Optional, Callable
-from fastapi import Request, Depends
-from box import Box
+from typing import Callable, List
 
-from .config import get_config, AxiomsConfig
+from box import Box
+from fastapi import Depends, Request
+
+from .config import AxiomsConfig, get_config
+from .error import AxiomsHTTPException
 from .token import (
+    check_permissions,
+    check_roles,
+    check_scopes,
+    get_claim_from_token,
+    get_expected_issuer,
     has_bearer_token,
     has_valid_token,
-    check_scopes,
-    check_roles,
-    check_permissions,
-    get_claim_from_token,
 )
-from .error import AxiomsHTTPException
 
 
 def require_auth(request: Request, config: AxiomsConfig = Depends(get_config)) -> Box:
@@ -65,12 +67,12 @@ def require_auth(request: Request, config: AxiomsConfig = Depends(get_config)) -
         payload = has_valid_token(token, config)
         return payload
     except Exception as ex:
-        if hasattr(ex, 'error') and hasattr(ex, 'status_code'):
+        if hasattr(ex, "error") and hasattr(ex, "status_code"):
             # AxiomsError from token validation
             raise AxiomsHTTPException(
                 error=ex.error,
                 status_code=ex.status_code,
-                domain=config.AXIOMS_DOMAIN,
+                realm=get_expected_issuer(config) or "",
             )
         # Unexpected error
         raise AxiomsHTTPException(
@@ -79,7 +81,7 @@ def require_auth(request: Request, config: AxiomsConfig = Depends(get_config)) -
                 "error_description": "Authentication failed",
             },
             401,
-            config.AXIOMS_DOMAIN,
+            get_expected_issuer(config) or "",
         )
 
 
@@ -117,13 +119,13 @@ def require_scopes(required_scopes: List[str]) -> Callable:
         ):
             return {"data": "requires both scopes"}
     """
+
     def scope_dependency(
-        payload: Box = Depends(require_auth),
-        config: AxiomsConfig = Depends(get_config)
+        payload: Box = Depends(require_auth), config: AxiomsConfig = Depends(get_config)
     ) -> None:
         """Dependency function to check scopes."""
         # Get scope from configured claim names
-        token_scope = get_claim_from_token(payload, 'SCOPE', config) or ''
+        token_scope = get_claim_from_token(payload, "SCOPE", config) or ""
 
         if not check_scopes(token_scope, required_scopes):
             raise AxiomsHTTPException(
@@ -132,7 +134,7 @@ def require_scopes(required_scopes: List[str]) -> Callable:
                     "error_description": "Insufficient role, scope or permission",
                 },
                 403,
-                config.AXIOMS_DOMAIN,
+                get_expected_issuer(config) or "",
             )
 
     return scope_dependency
@@ -172,13 +174,13 @@ def require_roles(required_roles: List[str]) -> Callable:
         ):
             return {"message": "requires both roles"}
     """
+
     def role_dependency(
-        payload: Box = Depends(require_auth),
-        config: AxiomsConfig = Depends(get_config)
+        payload: Box = Depends(require_auth), config: AxiomsConfig = Depends(get_config)
     ) -> None:
         """Dependency function to check roles."""
         # Get roles from configured claim names
-        token_roles = get_claim_from_token(payload, 'ROLES', config) or []
+        token_roles = get_claim_from_token(payload, "ROLES", config) or []
 
         if not check_roles(token_roles, required_roles):
             raise AxiomsHTTPException(
@@ -187,7 +189,7 @@ def require_roles(required_roles: List[str]) -> Callable:
                     "error_description": "Insufficient role, scope or permission",
                 },
                 403,
-                config.AXIOMS_DOMAIN,
+                get_expected_issuer(config) or "",
             )
 
     return role_dependency
@@ -227,13 +229,13 @@ def require_permissions(required_permissions: List[str]) -> Callable:
         ):
             return {"message": "requires both permissions"}
     """
+
     def permission_dependency(
-        payload: Box = Depends(require_auth),
-        config: AxiomsConfig = Depends(get_config)
+        payload: Box = Depends(require_auth), config: AxiomsConfig = Depends(get_config)
     ) -> None:
         """Dependency function to check permissions."""
         # Get permissions from configured claim names
-        token_permissions = get_claim_from_token(payload, 'PERMISSIONS', config) or []
+        token_permissions = get_claim_from_token(payload, "PERMISSIONS", config) or []
 
         if not check_permissions(token_permissions, required_permissions):
             raise AxiomsHTTPException(
@@ -242,7 +244,7 @@ def require_permissions(required_permissions: List[str]) -> Callable:
                     "error_description": "Insufficient role, scope or permission",
                 },
                 403,
-                config.AXIOMS_DOMAIN,
+                get_expected_issuer(config) or "",
             )
 
     return permission_dependency

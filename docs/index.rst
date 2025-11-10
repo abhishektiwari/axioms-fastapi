@@ -5,6 +5,9 @@ OAuth2/OIDC authentication and authorization for FastAPI APIs. Supports authenti
 
 Works with access tokens issued by various authorization servers including `AWS Cognito <https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html>`_, `Auth0 <https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles>`_, `Okta <https://developer.okta.com/docs/api/oauth2/>`_, `Microsoft Entra <https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles>`_, etc.
 
+.. note::
+   **Using Flask or Django REST Framework?** This package is specifically for FastAPI. For Flask applications, use `axioms-flask-py <https://github.com/abhishektiwari/axioms-flask-py>`_. For DRF applications, use `axioms-drf-py <https://github.com/abhishektiwari/axioms-drf-py>`_.
+
 .. image:: https://img.shields.io/github/v/release/abhishektiwari/axioms-fastapi
    :alt: GitHub Release
    :target: https://github.com/abhishektiwari/axioms-fastapi/releases
@@ -60,7 +63,7 @@ Quick Start
 .. code-block:: python
 
    from fastapi import FastAPI
-   from axioms_fastapi import init_axioms
+   from axioms_fastapi import init_axioms, register_axioms_exception_handler
 
    app = FastAPI()
    init_axioms(
@@ -68,6 +71,9 @@ Quick Start
        AXIOMS_AUDIENCE="your-api-audience",
        AXIOMS_DOMAIN="your-auth.domain.com"
    )
+
+   # Register exception handler for authentication/authorization errors
+   register_axioms_exception_handler(app)
 
 2. Create a ``.env`` file with your configuration (see `.env.example <https://github.com/abhishektiwari/axioms-fastapi/blob/main/.env.example>`_ for reference):
 

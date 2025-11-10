@@ -3,7 +3,8 @@
 This module provides configuration classes for managing Axioms settings in FastAPI applications.
 """
 
-from typing import Optional, List
+from typing import List, Optional
+
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 

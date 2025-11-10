@@ -3,6 +3,9 @@ OAuth2/OIDC authentication and authorization for FastAPI APIs. Supports authenti
 
 Works with access tokens issued by various authorization servers including [AWS Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html), [Auth0](https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles), [Okta](https://developer.okta.com/docs/api/oauth2/), [Microsoft Entra](https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles), etc.
 
+> **Using Flask or Django REST Framework?** This package is specifically for FastAPI. For Flask applications, use [axioms-flask-py](https://github.com/abhishektiwari/axioms-flask-py). For DRF applications, use [axioms-drf-py](https://github.com/abhishektiwari/axioms-drf-py).
+
+
 ![GitHub Release](https://img.shields.io/github/v/release/abhishektiwari/axioms-fastapi)
 ![GitHub Actions Test Workflow Status](https://img.shields.io/github/actions/workflow/status/abhishektiwari/axioms-fastapi/test.yml?label=tests)
 ![PyPI - Version](https://img.shields.io/pypi/v/axioms-fastapi)
@@ -35,7 +38,7 @@ pip install axioms-fastapi
 
 ```python
 from fastapi import FastAPI, Depends
-from axioms_fastapi import init_axioms, require_auth, require_scopes
+from axioms_fastapi import init_axioms, require_auth, require_scopes, register_axioms_exception_handler
 
 app = FastAPI()
 
@@ -45,6 +48,9 @@ init_axioms(
     AXIOMS_AUDIENCE="your-api-audience",
     AXIOMS_DOMAIN="your-auth.domain.com"
 )
+
+# Register exception handler for authentication/authorization errors
+register_axioms_exception_handler(app)
 ```
 
 ### 2. Protect your routes
@@ -100,10 +106,12 @@ AXIOMS_DOMAIN=your-auth.domain.com
 
 ```python
 from fastapi import FastAPI, Depends
-from axioms_fastapi import init_axioms, require_auth
+from axioms_fastapi import init_axioms, require_auth, require_scopes, register_axioms_exception_handler
 
 app = FastAPI()
 init_axioms(app, AXIOMS_AUDIENCE="api.example.com", AXIOMS_DOMAIN="auth.example.com")
+
+register_axioms_exception_handler(app)
 
 @app.get("/profile")
 async def get_profile(payload=Depends(require_auth)):
@@ -199,24 +207,20 @@ init_axioms(
 
 ## Error Handling
 
-The SDK raises `AxiomsHTTPException` for authentication and authorization errors:
+The SDK raises `AxiomsHTTPException` for authentication and authorization errors. Register the exception handler to return proper error responses with WWW-Authenticate headers:
 
 ```python
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from axioms_fastapi import init_axioms, AxiomsHTTPException
+from fastapi import FastAPI
+from axioms_fastapi import init_axioms, register_axioms_exception_handler
 
 app = FastAPI()
 init_axioms(app, AXIOMS_AUDIENCE="api.example.com", AXIOMS_DOMAIN="auth.example.com")
 
-@app.exception_handler(AxiomsHTTPException)
-async def axioms_exception_handler(request: Request, exc: AxiomsHTTPException):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=exc.detail,
-        headers=exc.headers
-    )
+# Register exception handler for Axioms errors
+register_axioms_exception_handler(app)
 ```
+
+This will automatically handle both authentication (401) and authorization (403) errors with proper WWW-Authenticate headers.
 
 ## Security Features
 
