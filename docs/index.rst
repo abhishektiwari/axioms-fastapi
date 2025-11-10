@@ -5,6 +5,9 @@ OAuth2/OIDC authentication and authorization for FastAPI APIs. Supports authenti
 
 Works with access tokens issued by various authorization servers including `AWS Cognito <https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html>`_, `Auth0 <https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles>`_, `Okta <https://developer.okta.com/docs/api/oauth2/>`_, `Microsoft Entra <https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles>`_, etc.
 
+.. note::
+   **Using Flask or Django REST Framework?** This package is specifically for FastAPI. For Flask applications, use `axioms-flask-py <https://github.com/abhishektiwari/axioms-flask-py>`_. For DRF applications, use `axioms-drf-py <https://github.com/abhishektiwari/axioms-drf-py>`_.
+
 .. image:: https://img.shields.io/github/v/release/abhishektiwari/axioms-fastapi
    :alt: GitHub Release
    :target: https://github.com/abhishektiwari/axioms-fastapi/releases
