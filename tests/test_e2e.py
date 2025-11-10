@@ -241,12 +241,26 @@ class TestAuthentication:
         data = response.json()
         assert data['error'] == 'unauthorized_access'
 
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header
+
     def test_private_endpoint_invalid_bearer(self, client):
         """Test that private endpoint rejects invalid bearer format."""
         response = client.get('/private', headers={'Authorization': 'InvalidBearer token'})
         assert response.status_code == 401
         data = response.json()
         assert data['error'] == 'unauthorized_access'
+
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header
 
     def test_private_endpoint_with_valid_token(self, client, test_key):
         """Test that private endpoint accepts valid token with required scopes."""
@@ -273,7 +287,6 @@ class TestAuthentication:
         claims = json.dumps({
             'sub': 'user123',
             'iss': 'https://test-domain.com',
-            'iss': 'https://test-domain.com',
             'aud': ['test-audience'],
             'scope': 'openid profile email',
             'exp': now - 3600,  # Expired 1 hour ago
@@ -285,6 +298,13 @@ class TestAuthentication:
         assert response.status_code == 401
         data = response.json()
         assert data['error'] == 'unauthorized_access'
+
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header
 
     def test_private_endpoint_wrong_audience(self, client, test_key):
         """Test that private endpoint rejects token with wrong audience."""
@@ -303,6 +323,13 @@ class TestAuthentication:
         assert response.status_code == 401
         data = response.json()
         assert data['error'] == 'unauthorized_access'
+
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header
 
 
 class TestScopeAuthorization:
@@ -341,6 +368,13 @@ class TestScopeAuthorization:
         assert response.status_code == 403
         data = response.json()
         assert data['error'] == 'insufficient_permission'
+
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header
 
 
 class TestRoleAuthorization:
@@ -381,6 +415,13 @@ class TestRoleAuthorization:
         assert response.status_code == 403
         data = response.json()
         assert data['error'] == 'insufficient_permission'
+
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header
 
     def test_role_with_namespaced_claims(self, client, test_key, app):
         """Test role checking with namespaced claims."""
@@ -425,6 +466,13 @@ class TestRoleAuthorization:
         data = response.json()
         assert data['error'] == 'unauthorized_access'
 
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header
+
 
 class TestPermissionAuthorization:
     """Test permission-based authorization."""
@@ -464,6 +512,13 @@ class TestPermissionAuthorization:
         assert response.status_code == 403
         data = response.json()
         assert data['error'] == 'insufficient_permission'
+
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header
 
     def test_permission_update_with_valid_permission(self, client, test_key):
         """Test update endpoint with valid permission."""
@@ -562,6 +617,13 @@ class TestPermissionAuthorization:
         data = response.json()
         assert data['error'] == 'unauthorized_access'
 
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header
+
 
 class TestMultipleMethodsEndpoint:
     """Test endpoint that handles multiple HTTP methods with role authorization."""
@@ -624,6 +686,13 @@ class TestChainingDependencies:
         data = response.json()
         assert data['error'] == 'insufficient_permission'
 
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header
+
     def test_chaining_scopes_with_no_scopes(self, client, test_key):
         """Test chaining scopes fails when token has neither required scope."""
         now = int(time.time())
@@ -641,6 +710,13 @@ class TestChainingDependencies:
         assert response.status_code == 403
         data = response.json()
         assert data['error'] == 'insufficient_permission'
+
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header
 
     def test_chaining_roles_with_both_roles(self, client, test_key):
         """Test chaining roles succeeds when token has both required roles."""
@@ -678,6 +754,13 @@ class TestChainingDependencies:
         data = response.json()
         assert data['error'] == 'insufficient_permission'
 
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header
+
     def test_chaining_permissions_with_both_permissions(self, client, test_key):
         """Test chaining permissions succeeds when token has both required permissions."""
         now = int(time.time())
@@ -713,6 +796,13 @@ class TestChainingDependencies:
         assert response.status_code == 403
         data = response.json()
         assert data['error'] == 'insufficient_permission'
+
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header
 
     def test_chaining_mixed_with_all_claims(self, client, test_key):
         """Test mixed chaining succeeds when token has all required claims."""
@@ -754,6 +844,13 @@ class TestChainingDependencies:
         data = response.json()
         assert data['error'] == 'insufficient_permission'
 
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header
+
     def test_chaining_mixed_missing_role(self, client, test_key):
         """Test mixed chaining fails when role is missing."""
         now = int(time.time())
@@ -774,6 +871,13 @@ class TestChainingDependencies:
         data = response.json()
         assert data['error'] == 'insufficient_permission'
 
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header
+
     def test_chaining_mixed_missing_permission(self, client, test_key):
         """Test mixed chaining fails when permission is missing."""
         now = int(time.time())
@@ -793,3 +897,10 @@ class TestChainingDependencies:
         assert response.status_code == 403
         data = response.json()
         assert data['error'] == 'insufficient_permission'
+
+        # Verify WWW-Authenticate header
+        assert 'WWW-Authenticate' in response.headers
+        auth_header = response.headers['WWW-Authenticate']
+        assert auth_header.startswith('Bearer realm=')
+        assert 'error=' in auth_header
+        assert 'error_description=' in auth_header

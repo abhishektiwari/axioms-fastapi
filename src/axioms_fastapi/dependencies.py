@@ -33,6 +33,7 @@ from .token import (
     check_roles,
     check_permissions,
     get_claim_from_token,
+    get_expected_issuer,
 )
 from .error import AxiomsHTTPException
 
@@ -70,7 +71,7 @@ def require_auth(request: Request, config: AxiomsConfig = Depends(get_config)) -
             raise AxiomsHTTPException(
                 error=ex.error,
                 status_code=ex.status_code,
-                domain=config.AXIOMS_DOMAIN,
+                realm=get_expected_issuer(config) or "",
             )
         # Unexpected error
         raise AxiomsHTTPException(
@@ -79,7 +80,7 @@ def require_auth(request: Request, config: AxiomsConfig = Depends(get_config)) -
                 "error_description": "Authentication failed",
             },
             401,
-            config.AXIOMS_DOMAIN,
+            get_expected_issuer(config) or "",
         )
 
 
@@ -132,7 +133,7 @@ def require_scopes(required_scopes: List[str]) -> Callable:
                     "error_description": "Insufficient role, scope or permission",
                 },
                 403,
-                config.AXIOMS_DOMAIN,
+                get_expected_issuer(config) or "",
             )
 
     return scope_dependency
@@ -187,7 +188,7 @@ def require_roles(required_roles: List[str]) -> Callable:
                     "error_description": "Insufficient role, scope or permission",
                 },
                 403,
-                config.AXIOMS_DOMAIN,
+                get_expected_issuer(config) or "",
             )
 
     return role_dependency
@@ -242,7 +243,7 @@ def require_permissions(required_permissions: List[str]) -> Callable:
                     "error_description": "Insufficient role, scope or permission",
                 },
                 403,
-                config.AXIOMS_DOMAIN,
+                get_expected_issuer(config) or "",
             )
 
     return permission_dependency
