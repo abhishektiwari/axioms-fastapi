@@ -9,14 +9,13 @@ import time
 import pytest
 from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
-from fastapi.responses import JSONResponse
 from jwcrypto import jwk, jwt
 from axioms_fastapi import (
     require_auth,
     require_scopes,
     require_roles,
     require_permissions,
-    AxiomsHTTPException,
+    register_axioms_exception_handler,
 )
 from axioms_fastapi.config import init_axioms
 
@@ -95,14 +94,8 @@ def app(mock_jwks_fetch):
         AXIOMS_DOMAIN='test-domain.com'
     )
 
-    # Exception handler for AxiomsHTTPException
-    @fastapi_app.exception_handler(AxiomsHTTPException)
-    async def axioms_exception_handler(request, exc: AxiomsHTTPException):
-        return JSONResponse(
-            status_code=exc.status_code,
-            content=exc.detail,
-            headers=exc.headers
-        )
+    # Register exception handler for Axioms errors
+    register_axioms_exception_handler(fastapi_app)
 
     # Public endpoint
     @fastapi_app.get('/public')

@@ -5,7 +5,8 @@ in FastAPI applications.
 """
 
 from typing import Dict, Any
-from fastapi import HTTPException, status
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 
 class AxiomsError(Exception):
@@ -79,4 +80,37 @@ class AxiomsHTTPException(HTTPException):
             status_code=status_code,
             detail=detail,
             headers=headers if headers else None,
+        )
+
+
+def register_axioms_exception_handler(app: FastAPI) -> None:
+    """Register the Axioms exception handler with the FastAPI application.
+
+    This convenience function registers a default exception handler for
+    ``AxiomsHTTPException`` exceptions. The handler returns appropriate HTTP status
+    codes and includes the ``WWW-Authenticate`` header for 401 and 403 responses.
+
+    Args:
+        app: FastAPI application instance.
+
+    Example::
+
+        from fastapi import FastAPI
+        from axioms_fastapi.error import register_axioms_exception_handler
+
+        app = FastAPI()
+        register_axioms_exception_handler(app)
+
+    Note:
+        The exception handler is already configured in the ``AxiomsHTTPException``
+        class with proper headers and status codes. This function simply registers
+        a handler that returns the exception details in a JSON response.
+    """
+    @app.exception_handler(AxiomsHTTPException)
+    async def axioms_exception_handler(request: Request, exc: AxiomsHTTPException):
+        """Handle authentication and authorization errors."""
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.detail,
+            headers=exc.headers if exc.headers else {},
         )

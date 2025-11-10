@@ -11,10 +11,11 @@ Check if ``openid`` or ``profile`` scope is present in the token:
 .. code-block:: python
 
    from fastapi import FastAPI, Depends
-   from axioms_fastapi import init_axioms, require_auth, require_scopes
+   from axioms_fastapi import init_axioms, require_auth, require_scopes, register_axioms_exception_handler
 
    app = FastAPI()
    init_axioms(app, AXIOMS_AUDIENCE="your-api", AXIOMS_DOMAIN="auth.example.com")
+   register_axioms_exception_handler(app)
 
    @app.get('/private')
    async def api_private(
@@ -59,10 +60,11 @@ Check if ``sample:role`` role is present in the token:
 .. code-block:: python
 
    from fastapi import FastAPI, Depends
-   from axioms_fastapi import init_axioms, require_auth, require_roles
+   from axioms_fastapi import init_axioms, require_auth, require_roles, register_axioms_exception_handler
 
    app = FastAPI()
    init_axioms(app, AXIOMS_AUDIENCE="your-api", AXIOMS_DOMAIN="auth.example.com")
+   register_axioms_exception_handler(app)
 
    @app.get("/role")
    async def sample_role_get(
@@ -142,10 +144,11 @@ Check permissions at the API method level:
 .. code-block:: python
 
    from fastapi import FastAPI, Depends
-   from axioms_fastapi import init_axioms, require_auth, require_permissions
+   from axioms_fastapi import init_axioms, require_auth, require_permissions, register_axioms_exception_handler
 
    app = FastAPI()
    init_axioms(app, AXIOMS_AUDIENCE="your-api", AXIOMS_DOMAIN="auth.example.com")
+   register_axioms_exception_handler(app)
 
    @app.post("/permission")
    async def sample_create(
@@ -230,11 +233,13 @@ Combine multiple authorization requirements using dependency chaining:
        require_auth,
        require_scopes,
        require_roles,
-       require_permissions
+       require_permissions,
+       register_axioms_exception_handler
    )
 
    app = FastAPI()
    init_axioms(app, AXIOMS_AUDIENCE="your-api", AXIOMS_DOMAIN="auth.example.com")
+   register_axioms_exception_handler(app)
 
    @app.get("/api/strict")
    async def strict_endpoint(
@@ -295,10 +300,11 @@ Access user information from the validated JWT payload:
 .. code-block:: python
 
    from fastapi import FastAPI, Depends
-   from axioms_fastapi import init_axioms, require_auth
+   from axioms_fastapi import init_axioms, require_auth, register_axioms_exception_handler
 
    app = FastAPI()
    init_axioms(app, AXIOMS_AUDIENCE="your-api", AXIOMS_DOMAIN="auth.example.com")
+   register_axioms_exception_handler(app)
 
    @app.get("/me")
    async def get_current_user(payload=Depends(require_auth)):

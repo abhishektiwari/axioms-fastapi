@@ -35,7 +35,7 @@ pip install axioms-fastapi
 
 ```python
 from fastapi import FastAPI, Depends
-from axioms_fastapi import init_axioms, require_auth, require_scopes
+from axioms_fastapi import init_axioms, require_auth, require_scopes, register_axioms_exception_handler
 
 app = FastAPI()
 
@@ -45,6 +45,9 @@ init_axioms(
     AXIOMS_AUDIENCE="your-api-audience",
     AXIOMS_DOMAIN="your-auth.domain.com"
 )
+
+# Register exception handler for authentication/authorization errors
+register_axioms_exception_handler(app)
 ```
 
 ### 2. Protect your routes
@@ -100,10 +103,12 @@ AXIOMS_DOMAIN=your-auth.domain.com
 
 ```python
 from fastapi import FastAPI, Depends
-from axioms_fastapi import init_axioms, require_auth
+from axioms_fastapi import init_axioms, require_auth, require_scopes, register_axioms_exception_handler
 
 app = FastAPI()
 init_axioms(app, AXIOMS_AUDIENCE="api.example.com", AXIOMS_DOMAIN="auth.example.com")
+
+register_axioms_exception_handler(app)
 
 @app.get("/profile")
 async def get_profile(payload=Depends(require_auth)):
@@ -199,24 +204,20 @@ init_axioms(
 
 ## Error Handling
 
-The SDK raises `AxiomsHTTPException` for authentication and authorization errors:
+The SDK raises `AxiomsHTTPException` for authentication and authorization errors. Register the exception handler to return proper error responses with WWW-Authenticate headers:
 
 ```python
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from axioms_fastapi import init_axioms, AxiomsHTTPException
+from fastapi import FastAPI
+from axioms_fastapi import init_axioms, register_axioms_exception_handler
 
 app = FastAPI()
 init_axioms(app, AXIOMS_AUDIENCE="api.example.com", AXIOMS_DOMAIN="auth.example.com")
 
-@app.exception_handler(AxiomsHTTPException)
-async def axioms_exception_handler(request: Request, exc: AxiomsHTTPException):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=exc.detail,
-        headers=exc.headers
-    )
+# Register exception handler for Axioms errors
+register_axioms_exception_handler(app)
 ```
+
+This will automatically handle both authentication (401) and authorization (403) errors with proper WWW-Authenticate headers.
 
 ## Security Features
 

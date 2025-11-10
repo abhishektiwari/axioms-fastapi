@@ -60,7 +60,7 @@ Quick Start
 .. code-block:: python
 
    from fastapi import FastAPI
-   from axioms_fastapi import init_axioms
+   from axioms_fastapi import init_axioms, register_axioms_exception_handler
 
    app = FastAPI()
    init_axioms(
@@ -68,6 +68,9 @@ Quick Start
        AXIOMS_AUDIENCE="your-api-audience",
        AXIOMS_DOMAIN="your-auth.domain.com"
    )
+
+   # Register exception handler for authentication/authorization errors
+   register_axioms_exception_handler(app)
 
 2. Create a ``.env`` file with your configuration (see `.env.example <https://github.com/abhishektiwari/axioms-fastapi/blob/main/.env.example>`_ for reference):
 

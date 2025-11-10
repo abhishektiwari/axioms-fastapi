@@ -11,7 +11,7 @@ except ImportError:
     # Version file doesn't exist yet (development mode without build)
     __version__ = "0.0.0.dev0"
 
-from .error import AxiomsError, AxiomsHTTPException
+from .error import AxiomsError, AxiomsHTTPException, register_axioms_exception_handler
 from .dependencies import (
     require_auth,
     require_scopes,
@@ -24,6 +24,7 @@ __all__ = [
     "__version__",
     "AxiomsError",
     "AxiomsHTTPException",
+    "register_axioms_exception_handler",
     "require_auth",
     "require_scopes",
     "require_roles",
