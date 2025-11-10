@@ -4,7 +4,8 @@ This module defines custom exceptions for authentication and authorization error
 in FastAPI applications.
 """
 
-from typing import Dict, Any
+from typing import Dict
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
@@ -106,6 +107,7 @@ def register_axioms_exception_handler(app: FastAPI) -> None:
         class with proper headers and status codes. This function simply registers
         a handler that returns the exception details in a JSON response.
     """
+
     @app.exception_handler(AxiomsHTTPException)
     async def axioms_exception_handler(request: Request, exc: AxiomsHTTPException):
         """Handle authentication and authorization errors."""

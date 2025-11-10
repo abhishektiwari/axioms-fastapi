@@ -10,14 +10,16 @@ For complete configuration documentation, see the Configuration section in the A
 import json
 import ssl
 import time
-import jwt
-from jwcrypto import jwk, jws
+from typing import Any, List, Optional
 from urllib.request import urlopen
+
+import jwt
 from box import Box
-from typing import Optional, List, Dict, Any
 from fastapi import Request
+from jwcrypto import jwk, jws
+
+from .config import AxiomsConfig, get_config
 from .error import AxiomsError
-from .config import get_config, AxiomsConfig
 
 
 class SimpleCache:
@@ -60,14 +62,24 @@ cache = SimpleCache()
 
 # Allowed signature algorithms for JWT validation
 # Only asymmetric algorithms are allowed to prevent algorithm confusion attacks
-ALLOWED_ALGORITHMS = frozenset([
-    'RS256', 'RS384', 'RS512',  # RSA with SHA-256, SHA-384, SHA-512
-    'ES256', 'ES384', 'ES512',  # ECDSA with SHA-256, SHA-384, SHA-512
-    'PS256', 'PS384', 'PS512',  # RSA-PSS with SHA-256, SHA-384, SHA-512
-])
+ALLOWED_ALGORITHMS = frozenset(
+    [
+        "RS256",
+        "RS384",
+        "RS512",  # RSA with SHA-256, SHA-384, SHA-512
+        "ES256",
+        "ES384",
+        "ES512",  # ECDSA with SHA-256, SHA-384, SHA-512
+        "PS256",
+        "PS384",
+        "PS512",  # RSA-PSS with SHA-256, SHA-384, SHA-512
+    ]
+)
 
 
-def get_claim_names(claim_type: str, config: Optional[AxiomsConfig] = None) -> List[str]:
+def get_claim_names(
+    claim_type: str, config: Optional[AxiomsConfig] = None
+) -> List[str]:
     """Get list of claim names to check for a given claim type.
 
     Checks configuration for custom claim names, falling back to defaults.
@@ -95,16 +107,14 @@ def get_claim_names(claim_type: str, config: Optional[AxiomsConfig] = None) -> L
         return claims if isinstance(claims, list) else [claims]
 
     # Default claim names
-    defaults = {
-        'SCOPE': ['scope'],
-        'ROLES': ['roles'],
-        'PERMISSIONS': ['permissions']
-    }
+    defaults = {"SCOPE": ["scope"], "ROLES": ["roles"], "PERMISSIONS": ["permissions"]}
 
     return defaults.get(claim_type.upper(), [])
 
 
-def get_claim_from_token(payload: Box, claim_type: str, config: Optional[AxiomsConfig] = None) -> Any:
+def get_claim_from_token(
+    payload: Box, claim_type: str, config: Optional[AxiomsConfig] = None
+) -> Any:
     """Extract claim value from token payload.
 
     Checks multiple possible claim names based on configuration,
@@ -124,7 +134,11 @@ def get_claim_from_token(payload: Box, claim_type: str, config: Optional[AxiomsC
         # Returns: ['admin', 'editor']
     """
     for claim_name in get_claim_names(claim_type, config):
-        value = getattr(payload, claim_name.replace(':', '_').replace('/', '_').replace('-', '_'), None)
+        value = getattr(
+            payload,
+            claim_name.replace(":", "_").replace("/", "_").replace("-", "_"),
+            None,
+        )
         if value is None:
             # Try with original claim name (for standard claims)
             try:
@@ -259,7 +273,7 @@ def has_valid_token(token: str, config: Optional[AxiomsConfig] = None) -> Box:
     # Validate issuer if configured
     expected_issuer = get_expected_issuer(config)
     if expected_issuer:
-        token_issuer = getattr(payload, 'iss', None)
+        token_issuer = getattr(payload, "iss", None)
         if not token_issuer:
             raise AxiomsError(
                 {
@@ -318,7 +332,7 @@ def get_payload_from_token(token: str, key, alg: str) -> Optional[Box]:
 
     # Verify that the algorithm in the token matches what we expect
     # This prevents algorithm substitution attacks
-    token_alg = jws_token.jose_header.get('alg')
+    token_alg = jws_token.jose_header.get("alg")
     if token_alg != alg:
         return None
 
@@ -367,7 +381,9 @@ def check_roles(token_roles: List[str], view_roles: List[str]) -> bool:
     return len(token_roles.intersection(view_roles)) > 0
 
 
-def check_permissions(token_permissions: List[str], view_permissions: List[str]) -> bool:
+def check_permissions(
+    token_permissions: List[str], view_permissions: List[str]
+) -> bool:
     """Check if any required permissions are present in token permissions.
 
     Args:
