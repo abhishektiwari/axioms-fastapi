@@ -160,6 +160,62 @@ The SDK supports the following configuration options:
 
    For most use cases, setting only ``AXIOMS_ISS_URL`` is sufficient. The SDK will automatically construct the JWKS endpoint URL.
 
+Middleware (Optional)
+---------------------
+
+You can use middleware to automatically extract and validate JWT tokens for all incoming requests. The middleware sets attributes on ``request.state`` that you can access in your route handlers.
+
+Adding Middleware
+^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   from fastapi import FastAPI, Request
+   from axioms_fastapi import init_axioms, register_axioms_exception_handler
+   from axioms_fastapi.middleware import AccessTokenMiddleware
+
+   app = FastAPI()
+
+   # Initialize Axioms configuration
+   init_axioms(
+       app,
+       AXIOMS_AUDIENCE="api.example.com",
+       AXIOMS_ISS_URL="https://auth.example.com"
+   )
+
+   # Add middleware to automatically process tokens
+   app.add_middleware(AccessTokenMiddleware)
+
+   # Register exception handler
+   register_axioms_exception_handler(app)
+
+   @app.get("/profile")
+   async def get_profile(request: Request):
+       # Access token payload from request.state.auth_jwt
+       if request.state.auth_jwt:
+           return {
+               "user_id": request.state.auth_jwt.sub,
+               "email": request.state.auth_jwt.get("email")
+           }
+       elif request.state.auth_jwt is False:
+           return {"error": "Invalid token"}, 401
+       else:
+           return {"error": "No token provided"}, 401
+
+Request State Attributes
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The middleware sets the following attributes on ``request.state``:
+
+* ``auth_jwt`` (Box|False|None):
+
+  - Box object with token payload if valid
+  - ``False`` if token is invalid (expired, wrong audience, etc.)
+  - ``None`` if no Authorization header present
+
+* ``missing_auth_header`` (bool): ``True`` if Authorization header is missing
+* ``invalid_bearer_token`` (bool): ``True`` if Bearer format is invalid
+
 Protect Your FastAPI Routes
 ----------------------------
 

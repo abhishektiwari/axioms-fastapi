@@ -1,7 +1,94 @@
 Examples
 ========
 
-This page provides practical examples of using axioms-fastapi dependencies to secure your FastAPI routes.
+This page provides practical examples of using axioms-fastapi dependencies and middleware to secure your FastAPI routes.
+
+Using Middleware (Optional)
+----------------------------
+
+You can use middleware to automatically extract and validate JWT tokens for all incoming requests. The middleware sets attributes on ``request.state`` that you can access in your route handlers.
+
+Basic Middleware Setup
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   from fastapi import FastAPI, Request
+   from axioms_fastapi import init_axioms, register_axioms_exception_handler
+   from axioms_fastapi.middleware import AccessTokenMiddleware
+
+   app = FastAPI()
+
+   # Initialize Axioms configuration
+   init_axioms(
+       app,
+       AXIOMS_AUDIENCE="your-api",
+       AXIOMS_ISS_URL="https://auth.example.com",
+       AXIOMS_JWKS_URL="https://auth.example.com/.well-known/jwks.json"
+   )
+
+   # Add middleware to automatically process tokens
+   app.add_middleware(AccessTokenMiddleware)
+
+   # Register exception handler
+   register_axioms_exception_handler(app)
+
+   @app.get("/profile")
+   async def get_profile(request: Request):
+       """Access user profile using middleware-extracted token."""
+       if request.state.auth_jwt:
+           return {
+               "user_id": request.state.auth_jwt.sub,
+               "email": request.state.auth_jwt.get("email"),
+               "name": request.state.auth_jwt.get("name")
+           }
+       elif request.state.auth_jwt is False:
+           return {"error": "Invalid token"}, 401
+       else:
+           return {"error": "No token provided"}, 401
+
+   @app.get("/public")
+   async def public_endpoint(request: Request):
+       """Public endpoint that checks for optional authentication."""
+       if request.state.auth_jwt:
+           return {"message": f"Hello, {request.state.auth_jwt.sub}!"}
+       return {"message": "Hello, anonymous user!"}
+
+Combining Middleware with Dependencies
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can use middleware for token extraction and dependencies for authorization:
+
+.. code-block:: python
+
+   from fastapi import FastAPI, Request, Depends
+   from axioms_fastapi import init_axioms, require_scopes, register_axioms_exception_handler
+   from axioms_fastapi.middleware import AccessTokenMiddleware
+
+   app = FastAPI()
+   init_axioms(
+       app,
+       AXIOMS_AUDIENCE="your-api",
+       AXIOMS_ISS_URL="https://auth.example.com"
+   )
+   app.add_middleware(AccessTokenMiddleware)
+   register_axioms_exception_handler(app)
+
+   @app.get("/admin")
+   async def admin_endpoint(
+       request: Request,
+       _=Depends(require_scopes(["admin"]))
+   ):
+       """Middleware extracts token, dependency checks scope."""
+       return {
+           "message": "Admin access granted",
+           "user": request.state.auth_jwt.sub
+       }
+
+Using Dependencies (Recommended)
+---------------------------------
+
+For most use cases, using dependencies provides better control and follows FastAPI patterns.
 
 Scope-Based Authorization
 --------------------------
