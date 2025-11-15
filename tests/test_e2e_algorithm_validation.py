@@ -10,32 +10,13 @@ import pytest
 import base64
 from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
-from jwcrypto import jwk
-from jwcrypto import jwt as jwcrypto_jwt
 from axioms_fastapi import (
     init_axioms,
     require_auth,
     require_scopes,
     AxiomsHTTPException,
 )
-
-
-# Generate RSA key pair for testing
-def generate_test_keys():
-    """Generate RSA key pair for JWT signing and verification."""
-    key = jwk.JWK.generate(kty='RSA', size=2048, kid='test-key-id')
-    return key
-
-
-# Generate JWT token
-def generate_jwt_token(key, claims, alg='RS256'):
-    """Generate a JWT token with specified claims and algorithm."""
-    token = jwcrypto_jwt.JWT(
-        header={"alg": alg, "kid": key.kid},
-        claims=claims
-    )
-    token.make_signed_token(key)
-    return token.serialize()
+from conftest import generate_jwt_token
 
 
 # Create malformed token with unsupported algorithm
@@ -80,38 +61,6 @@ def app():
         return {'message': 'Private endpoint'}
 
     return fastapi_app
-
-
-@pytest.fixture
-def client(app):
-    """Create FastAPI test client."""
-    return TestClient(app)
-
-
-@pytest.fixture
-def test_key():
-    """Generate test RSA key."""
-    return generate_test_keys()
-
-
-@pytest.fixture
-def mock_jwks_data(test_key):
-    """Generate mock JWKS data."""
-    public_key = test_key.export_public(as_dict=True)
-    jwks = {'keys': [public_key]}
-    return json.dumps(jwks).encode('utf-8')
-
-
-@pytest.fixture(autouse=True)
-def mock_jwks_fetch(monkeypatch, mock_jwks_data):
-    """Mock JWKS fetch to return test keys."""
-    from axioms_fastapi import token
-
-    class MockCacheFetcher:
-        def fetch(self, url, max_age=300):
-            return mock_jwks_data
-
-    monkeypatch.setattr(token, 'CacheFetcher', MockCacheFetcher)
 
 
 # Test classes
@@ -212,13 +161,8 @@ class TestAlgorithmValidation:
             'iat': now
         })
 
-        # Create token using jwcrypto but manually remove kid from header
-        token_obj = jwcrypto_jwt.JWT(
-            header={"alg": "RS256"},  # Missing 'kid'
-            claims=claims
-        )
-        token_obj.make_signed_token(test_key)
-        token = token_obj.serialize()
+        # Create token without kid in header
+        token = generate_jwt_token(test_key, json.loads(claims), include_kid=False)
 
         response = client.get('/private', headers={'Authorization': f'Bearer {token}'})
         assert response.status_code == 401

@@ -7,19 +7,21 @@ authorization servers (AWS Cognito, Auth0, Okta, etc.).
 For complete configuration documentation, see the Configuration section in the API reference.
 """
 
-import json
-import ssl
+import logging
 import time
 from typing import Any, List, Optional
+from urllib.parse import urlparse
 from urllib.request import urlopen
 
 import jwt
 from box import Box
 from fastapi import Request
-from jwcrypto import jwk, jws
+from jwcrypto import jwk
 
 from .config import AxiomsConfig, get_config
 from .error import AxiomsError
+
+logger = logging.getLogger(__name__)
 
 
 class SimpleCache:
@@ -118,7 +120,7 @@ def get_claim_from_token(
     """Extract claim value from token payload.
 
     Checks multiple possible claim names based on configuration,
-    returning the first non-None value found.
+    returning the first non-None value found. Handles both string and list/tuple formats.
 
     Args:
         payload: Decoded JWT token payload (Box object).
@@ -126,12 +128,16 @@ def get_claim_from_token(
         config: Optional AxiomsConfig instance. If None, uses global config.
 
     Returns:
-        The claim value if found, None otherwise.
+        The claim value if found, None otherwise. For SCOPE claims in list/tuple format,
+        returns a space-separated string.
 
     Example::
 
         get_claim_from_token(payload, 'ROLES')
-        # Returns: ['admin', 'editor']
+        # Returns: ['admin', 'editor'] or ('admin', 'editor') for frozen Box
+
+        get_claim_from_token(payload, 'SCOPE')
+        # Returns: 'openid profile' (converted from list/tuple if needed)
     """
     for claim_name in get_claim_names(claim_type, config):
         value = getattr(
@@ -146,6 +152,9 @@ def get_claim_from_token(
             except (AttributeError, KeyError):
                 value = None
         if value is not None:
+            # Handle list/tuple format for scopes (frozen Box converts lists to tuples)
+            if claim_type.upper() == "SCOPE" and isinstance(value, (list, tuple)):
+                return " ".join(value)
             return value
     return None
 
@@ -249,7 +258,7 @@ def has_valid_token(token: str, config: Optional[AxiomsConfig] = None) -> Box:
         )
 
     key = get_key_from_jwks_json(kid, config)
-    payload = check_token_validity(token, key, alg)
+    payload = check_token_validity(token, key, alg, config)
 
     if not payload:
         raise AxiomsError(
@@ -260,88 +269,90 @@ def has_valid_token(token: str, config: Optional[AxiomsConfig] = None) -> Box:
             401,
         )
 
-    # Validate audience
-    if config.AXIOMS_AUDIENCE not in payload.aud:
-        raise AxiomsError(
-            {
-                "error": "unauthorized_access",
-                "error_description": "Invalid access token",
-            },
-            401,
-        )
-
-    # Validate issuer if configured
-    expected_issuer = get_expected_issuer(config)
-    if expected_issuer:
-        token_issuer = getattr(payload, "iss", None)
-        if not token_issuer:
-            raise AxiomsError(
-                {
-                    "error": "unauthorized_access",
-                    "error_description": "Missing issuer claim in token",
-                },
-                401,
-            )
-        if token_issuer != expected_issuer:
-            raise AxiomsError(
-                {
-                    "error": "unauthorized_access",
-                    "error_description": "Invalid issuer",
-                },
-                401,
-            )
-
     return payload
 
 
-def check_token_validity(token: str, key, alg: str) -> Optional[Box]:
-    """Verify token signature and check expiration.
+def check_token_validity(
+    token: str, key, alg: str, config: Optional[AxiomsConfig] = None
+) -> Optional[Box]:
+    """Check token validity including expiry, audience, and issuer.
+
+    Validates JWT token with comprehensive security checks:
+    - Signature verification using JWKS public key
+    - Algorithm validation (only secure asymmetric algorithms allowed)
+    - Expiration time (exp claim must exist and be valid)
+    - Audience (aud claim must match AXIOMS_AUDIENCE)
+    - Issuer (iss claim validated if AXIOMS_ISS_URL or AXIOMS_DOMAIN configured)
+    - Issued at time (iat claim)
+    - Not before time (nbf claim if present)
 
     Args:
         token: JWT token string to validate.
-        key: Public key for signature verification.
-        alg: Expected algorithm from token header (already validated).
+        key: JWK key for verification.
+        alg: Algorithm from token header (already validated against ALLOWED_ALGORITHMS).
+        config: Optional AxiomsConfig instance. If None, uses global config.
 
     Returns:
-        Box or None: Token payload as Box object if valid, None otherwise.
+        Box or None: Immutable (frozen) Box containing validated payload if valid,
+                     None if validation fails.
     """
-    payload = get_payload_from_token(token, key, alg)
-    now = time.time()
-    if payload and (now <= payload.exp):
-        return payload
-    else:
-        return None
-
-
-def get_payload_from_token(token: str, key, alg: str) -> Optional[Box]:
-    """Extract and verify JWT payload with algorithm validation.
-
-    Ensures the algorithm used for verification matches the algorithm specified
-    in the JWT header, preventing algorithm confusion attacks.
-
-    Args:
-        token: JWT token string.
-        key: Public key for signature verification.
-        alg: Expected algorithm from token header (must match key's algorithm).
-
-    Returns:
-        Box or None: Token payload as Box object if signature is valid, None otherwise.
-    """
-    jws_token = jws.JWS()
-    jws_token.deserialize(token)
-
-    # Verify that the algorithm in the token matches what we expect
-    # This prevents algorithm substitution attacks
-    token_alg = jws_token.jose_header.get("alg")
-    if token_alg != alg:
-        return None
+    if config is None:
+        config = get_config()
 
     try:
-        # Verify signature with the expected algorithm
-        # jwcrypto will ensure the key type matches the algorithm
-        jws_token.verify(key, alg=alg)
-        return Box(json.loads(jws_token.payload))
-    except (jws.InvalidJWSSignature, Exception):
+        # Convert JWK to PyJWT-compatible key
+        key_json = key.export_public()
+        algorithm = jwt.algorithms.get_default_algorithms()[alg]
+        pyjwt_key = algorithm.from_jwk(key_json)
+
+        # Build decode options
+        options = {
+            "verify_signature": True,
+            "verify_exp": True,
+            "verify_aud": True,
+            "verify_iss": False,  # We'll handle this conditionally
+            "verify_iat": True,
+            "verify_nbf": True,
+            "require_exp": True,
+        }
+
+        # Get expected issuer if configured
+        expected_issuer = get_expected_issuer(config)
+        if expected_issuer:
+            options["verify_iss"] = True
+
+        # Decode and verify token
+        # Use ALLOWED_ALGORITHMS for defense-in-depth against algorithm confusion attacks
+        payload = jwt.decode(
+            token,
+            pyjwt_key,
+            algorithms=list(ALLOWED_ALGORITHMS),
+            audience=config.AXIOMS_AUDIENCE,
+            issuer=expected_issuer,
+            options=options,
+        )
+
+        # Explicitly verify exp claim exists (PyJWT 2.10.1 bug workaround)
+        # See: https://github.com/jpadilla/pyjwt/issues/870
+        if "exp" not in payload:
+            return None
+
+        # Return immutable Box to prevent payload modification
+        return Box(payload, frozen_box=True)
+
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidAudienceError:
+        return None
+    except jwt.InvalidIssuerError:
+        return None
+    except jwt.InvalidSignatureError:
+        return None
+    except jwt.DecodeError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+    except Exception:
         return None
 
 
@@ -439,7 +450,10 @@ def get_expected_issuer(config: Optional[AxiomsConfig] = None) -> Optional[str]:
 
     # Construct from domain if available
     if config.AXIOMS_DOMAIN:
-        return f"https://{config.AXIOMS_DOMAIN}"
+        domain = config.AXIOMS_DOMAIN
+        # Remove protocol if present
+        domain = domain.replace("https://", "").replace("http://", "")
+        return f"https://{domain}"
 
     return None
 
@@ -495,12 +509,15 @@ def get_key_from_jwks_json(kid: str, config: Optional[AxiomsConfig] = None):
     Raises:
         AxiomsError: If key cannot be retrieved or is invalid.
     """
-    fetcher = CacheFetcher()
-    jwks_url = get_jwks_url(config)
-    data = fetcher.fetch(jwks_url, 600)
     try:
+        fetcher = CacheFetcher()
+        jwks_url = get_jwks_url(config)
+        data = fetcher.fetch(jwks_url, 600)
         key = jwk.JWKSet().from_json(data).get_key(kid)
         return key
+    except AxiomsError:
+        # Re-raise AxiomsError as-is (e.g., invalid URL scheme)
+        raise
     except Exception:
         raise AxiomsError(
             {
@@ -523,13 +540,44 @@ class CacheFetcher:
 
         Returns:
             bytes: Fetched data from URL or cache.
+
+        Raises:
+            Exception: If URL cannot be fetched (network error, HTTP error, timeout, etc.).
         """
-        # Redis cache
+        # Check cache first
         cached = cache.get("jwks" + url)
         if cached:
             return cached
-        # Retrieve and cache
-        context = ssl._create_unverified_context()
-        data = urlopen(url, context=context).read()
-        cache.set("jwks" + url, data, timeout=max_age)
-        return data
+
+        # Validate URL scheme for security (prevent file://, ftp://, etc.)
+        parsed_url = urlparse(url)
+        if parsed_url.scheme not in ("http", "https"):
+            logger.error(
+                f"Invalid URL scheme detected: {parsed_url.scheme}. "
+                f"URL: {url}"
+            )
+            raise AxiomsError(
+                {
+                    "error": "server_error",
+                    "error_description": (
+                        "Invalid JWKS URL configuration. "
+                        "Only http and https schemes are allowed."
+                    ),
+                },
+                500,
+            )
+
+        # Fetch from URL with default secure SSL context
+        # Python's urlopen uses verified SSL by default (validates certificates)
+        # URL scheme already validated above (only http/https allowed)
+        try:
+            data = urlopen(url).read()  # nosec B310
+            cache.set("jwks" + url, data, timeout=max_age)
+            return data
+        except Exception as e:
+            # Log the error with details for debugging
+            logger.error(
+                f"Failed to fetch JWKS from {url}: {type(e).__name__}: {str(e)}"
+            )
+            # Re-raise to bubble up
+            raise

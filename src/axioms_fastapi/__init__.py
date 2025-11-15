@@ -13,15 +13,18 @@ except ImportError:
 
 from .config import init_axioms
 from .dependencies import (
+    check_object_ownership,
     require_auth,
     require_permissions,
     require_roles,
     require_scopes,
 )
 from .error import AxiomsError, AxiomsHTTPException, register_axioms_exception_handler
+from .middleware import AccessTokenMiddleware
 
 __all__ = [
     "__version__",
+    "AccessTokenMiddleware",
     "AxiomsError",
     "AxiomsHTTPException",
     "register_axioms_exception_handler",
@@ -29,5 +32,6 @@ __all__ = [
     "require_scopes",
     "require_roles",
     "require_permissions",
+    "check_object_ownership",
     "init_axioms",
 ]

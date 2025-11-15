@@ -1,7 +1,94 @@
 Examples
 ========
 
-This page provides practical examples of using axioms-fastapi dependencies to secure your FastAPI routes.
+This page provides practical examples of using axioms-fastapi dependencies and middleware to secure your FastAPI routes.
+
+Using Middleware (Optional)
+----------------------------
+
+You can use middleware to automatically extract and validate JWT tokens for all incoming requests. The middleware sets attributes on ``request.state`` that you can access in your route handlers.
+
+Basic Middleware Setup
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   from fastapi import FastAPI, Request
+   from axioms_fastapi import init_axioms, register_axioms_exception_handler
+   from axioms_fastapi.middleware import AccessTokenMiddleware
+
+   app = FastAPI()
+
+   # Initialize Axioms configuration
+   init_axioms(
+       app,
+       AXIOMS_AUDIENCE="your-api",
+       AXIOMS_ISS_URL="https://auth.example.com",
+       AXIOMS_JWKS_URL="https://auth.example.com/.well-known/jwks.json"
+   )
+
+   # Add middleware to automatically process tokens
+   app.add_middleware(AccessTokenMiddleware)
+
+   # Register exception handler
+   register_axioms_exception_handler(app)
+
+   @app.get("/profile")
+   async def get_profile(request: Request):
+       """Access user profile using middleware-extracted token."""
+       if request.state.auth_jwt:
+           return {
+               "user_id": request.state.auth_jwt.sub,
+               "email": request.state.auth_jwt.get("email"),
+               "name": request.state.auth_jwt.get("name")
+           }
+       elif request.state.auth_jwt is False:
+           return {"error": "Invalid token"}, 401
+       else:
+           return {"error": "No token provided"}, 401
+
+   @app.get("/public")
+   async def public_endpoint(request: Request):
+       """Public endpoint that checks for optional authentication."""
+       if request.state.auth_jwt:
+           return {"message": f"Hello, {request.state.auth_jwt.sub}!"}
+       return {"message": "Hello, anonymous user!"}
+
+Combining Middleware with Dependencies
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can use middleware for token extraction and dependencies for authorization:
+
+.. code-block:: python
+
+   from fastapi import FastAPI, Request, Depends
+   from axioms_fastapi import init_axioms, require_scopes, register_axioms_exception_handler
+   from axioms_fastapi.middleware import AccessTokenMiddleware
+
+   app = FastAPI()
+   init_axioms(
+       app,
+       AXIOMS_AUDIENCE="your-api",
+       AXIOMS_ISS_URL="https://auth.example.com"
+   )
+   app.add_middleware(AccessTokenMiddleware)
+   register_axioms_exception_handler(app)
+
+   @app.get("/admin")
+   async def admin_endpoint(
+       request: Request,
+       _=Depends(require_scopes(["admin"]))
+   ):
+       """Middleware extracts token, dependency checks scope."""
+       return {
+           "message": "Admin access granted",
+           "user": request.state.auth_jwt.sub
+       }
+
+Using Dependencies (Recommended)
+---------------------------------
+
+For most use cases, using dependencies provides better control and follows FastAPI patterns.
 
 Scope-Based Authorization
 --------------------------
@@ -14,7 +101,12 @@ Check if ``openid`` or ``profile`` scope is present in the token:
    from axioms_fastapi import init_axioms, require_auth, require_scopes, register_axioms_exception_handler
 
    app = FastAPI()
-   init_axioms(app, AXIOMS_AUDIENCE="your-api", AXIOMS_DOMAIN="auth.example.com")
+   init_axioms(
+       app,
+       AXIOMS_AUDIENCE="your-api",
+       AXIOMS_ISS_URL="https://auth.example.com",
+       AXIOMS_JWKS_URL="https://auth.example.com/.well-known/jwks.json"
+   )
    register_axioms_exception_handler(app)
 
    @app.get('/private')
@@ -63,7 +155,12 @@ Check if ``sample:role`` role is present in the token:
    from axioms_fastapi import init_axioms, require_auth, require_roles, register_axioms_exception_handler
 
    app = FastAPI()
-   init_axioms(app, AXIOMS_AUDIENCE="your-api", AXIOMS_DOMAIN="auth.example.com")
+   init_axioms(
+       app,
+       AXIOMS_AUDIENCE="your-api",
+       AXIOMS_ISS_URL="https://auth.example.com",
+       AXIOMS_JWKS_URL="https://auth.example.com/.well-known/jwks.json"
+   )
    register_axioms_exception_handler(app)
 
    @app.get("/role")
@@ -147,7 +244,12 @@ Check permissions at the API method level:
    from axioms_fastapi import init_axioms, require_auth, require_permissions, register_axioms_exception_handler
 
    app = FastAPI()
-   init_axioms(app, AXIOMS_AUDIENCE="your-api", AXIOMS_DOMAIN="auth.example.com")
+   init_axioms(
+       app,
+       AXIOMS_AUDIENCE="your-api",
+       AXIOMS_ISS_URL="https://auth.example.com",
+       AXIOMS_JWKS_URL="https://auth.example.com/.well-known/jwks.json"
+   )
    register_axioms_exception_handler(app)
 
    @app.post("/permission")
@@ -238,7 +340,12 @@ Combine multiple authorization requirements using dependency chaining:
    )
 
    app = FastAPI()
-   init_axioms(app, AXIOMS_AUDIENCE="your-api", AXIOMS_DOMAIN="auth.example.com")
+   init_axioms(
+       app,
+       AXIOMS_AUDIENCE="your-api",
+       AXIOMS_ISS_URL="https://auth.example.com",
+       AXIOMS_JWKS_URL="https://auth.example.com/.well-known/jwks.json"
+   )
    register_axioms_exception_handler(app)
 
    @app.get("/api/strict")
@@ -303,7 +410,12 @@ Access user information from the validated JWT payload:
    from axioms_fastapi import init_axioms, require_auth, register_axioms_exception_handler
 
    app = FastAPI()
-   init_axioms(app, AXIOMS_AUDIENCE="your-api", AXIOMS_DOMAIN="auth.example.com")
+   init_axioms(
+       app,
+       AXIOMS_AUDIENCE="your-api",
+       AXIOMS_ISS_URL="https://auth.example.com",
+       AXIOMS_JWKS_URL="https://auth.example.com/.well-known/jwks.json"
+   )
    register_axioms_exception_handler(app)
 
    @app.get("/me")
@@ -328,6 +440,235 @@ Access user information from the validated JWT payload:
      "roles": ["editor", "viewer"],
      "permissions": ["resource:read", "resource:write"]
    }
+
+Object-Level Permissions (Row-Level Security)
+----------------------------------------------
+
+Protect individual resources based on ownership using ``check_object_ownership``. This enables row-level security by verifying that the authenticated user owns the specific resource they're trying to access.
+
+Basic Usage
+^^^^^^^^^^^
+
+Verify resource ownership using the default configuration (``owner_field="user"`` matches JWT ``sub`` claim):
+
+.. code-block:: python
+
+   from fastapi import FastAPI, Depends, HTTPException
+   from sqlmodel import Field, Session, SQLModel, create_engine
+   from axioms_fastapi import init_axioms, check_object_ownership, register_axioms_exception_handler
+
+   app = FastAPI()
+   init_axioms(
+       app,
+       AXIOMS_AUDIENCE="your-api",
+       AXIOMS_ISS_URL="https://auth.example.com",
+       AXIOMS_JWKS_URL="https://auth.example.com/.well-known/jwks.json"
+   )
+   register_axioms_exception_handler(app)
+
+   # Database setup
+   engine = create_engine("sqlite:///./database.db")
+
+   class Article(SQLModel, table=True):
+       id: int = Field(primary_key=True)
+       title: str
+       content: str
+       user: str = Field(index=True)  # Owner field - matches JWT 'sub' claim
+
+   def get_session():
+       with Session(engine) as session:
+           yield session
+
+   def get_article(article_id: int, session: Session = Depends(get_session)):
+       article = session.get(Article, article_id)
+       if not article:
+           raise HTTPException(status_code=404, detail="Article not found")
+       return article
+
+   # Only the article owner can read their article
+   @app.get("/articles/{article_id}")
+   async def read_article(
+       article: Article = Depends(check_object_ownership(get_article))
+   ):
+       # check_object_ownership verifies: article.user == JWT 'sub' claim
+       return {"id": article.id, "title": article.title, "user": article.user}
+
+   # Only the article owner can update their article
+   @app.patch("/articles/{article_id}")
+   async def update_article(
+       title: str,
+       article: Article = Depends(check_object_ownership(get_article)),
+       session: Session = Depends(get_session)
+   ):
+       article.title = title
+       session.add(article)
+       session.commit()
+       session.refresh(article)
+       return {"id": article.id, "title": article.title}
+
+   # Only the article owner can delete their article
+   @app.delete("/articles/{article_id}")
+   async def delete_article(
+       article: Article = Depends(check_object_ownership(get_article)),
+       session: Session = Depends(get_session)
+   ):
+       session.delete(article)
+       session.commit()
+       return {"message": "Article deleted"}
+
+**Example JWT Token Payload (Success):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "aud": "your-api-audience",
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+If ``article.user`` is ``"user123"``, the request will **succeed** because ``article.user == payload.sub``.
+
+**Example JWT Token Payload (Failure):**
+
+.. code-block:: json
+
+   {
+     "sub": "user456",
+     "aud": "your-api-audience",
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+If ``article.user`` is ``"user123"``, the request will **fail** with 403 Forbidden because ``article.user != payload.sub``.
+
+Custom Owner Field
+^^^^^^^^^^^^^^^^^^
+
+Use a different field name for ownership verification:
+
+.. code-block:: python
+
+   class Comment(SQLModel, table=True):
+       id: int = Field(primary_key=True)
+       article_id: int
+       text: str
+       created_by: str = Field(index=True)  # Custom owner field name
+
+   def get_comment(comment_id: int, session: Session = Depends(get_session)):
+       comment = session.get(Comment, comment_id)
+       if not comment:
+           raise HTTPException(status_code=404, detail="Comment not found")
+       return comment
+
+   @app.patch("/comments/{comment_id}")
+   async def update_comment(
+       text: str,
+       # Specify owner_field="created_by" to check comment.created_by == JWT 'sub'
+       comment: Comment = Depends(check_object_ownership(get_comment, owner_field="created_by")),
+       session: Session = Depends(get_session)
+   ):
+       comment.text = text
+       session.add(comment)
+       session.commit()
+       session.refresh(comment)
+       return {"id": comment.id, "text": comment.text, "created_by": comment.created_by}
+
+   @app.delete("/comments/{comment_id}")
+   async def delete_comment(
+       comment: Comment = Depends(check_object_ownership(get_comment, owner_field="created_by")),
+       session: Session = Depends(get_session)
+   ):
+       session.delete(comment)
+       session.commit()
+       return {"message": "Comment deleted"}
+
+Custom Claim Field
+^^^^^^^^^^^^^^^^^^
+
+Match ownership using a different JWT claim (e.g., ``email`` instead of ``sub``):
+
+.. code-block:: python
+
+   class Project(SQLModel, table=True):
+       id: int = Field(primary_key=True)
+       name: str
+       description: str
+       owner_email: str = Field(index=True)  # Matches JWT 'email' claim
+
+   def get_project(project_id: int, session: Session = Depends(get_session)):
+       project = session.get(Project, project_id)
+       if not project:
+           raise HTTPException(status_code=404, detail="Project not found")
+       return project
+
+   @app.get("/projects/{project_id}")
+   async def read_project(
+       # Match project.owner_email with JWT 'email' claim
+       project: Project = Depends(
+           check_object_ownership(
+               get_project,
+               owner_field="owner_email",
+               claim_field="email"
+           )
+       )
+   ):
+       return {"id": project.id, "name": project.name, "owner_email": project.owner_email}
+
+   @app.patch("/projects/{project_id}")
+   async def update_project(
+       name: str,
+       project: Project = Depends(
+           check_object_ownership(
+               get_project,
+               owner_field="owner_email",
+               claim_field="email"
+           )
+       ),
+       session: Session = Depends(get_session)
+   ):
+       project.name = name
+       session.add(project)
+       session.commit()
+       session.refresh(project)
+       return {"id": project.id, "name": project.name}
+
+**Example JWT Token Payload (Success):**
+
+.. code-block:: json
+
+   {
+     "sub": "user123",
+     "email": "user@example.com",
+     "aud": "your-api-audience",
+     "exp": 1735689600,
+     "iat": 1735686000
+   }
+
+If ``project.owner_email`` is ``"user@example.com"``, the request will **succeed** because ``project.owner_email == payload.email``.
+
+Error Scenarios
+^^^^^^^^^^^^^^^
+
+``check_object_ownership`` handles various error cases:
+
+``404 Not Found`` - Resource doesn't exist (handled by your ``get_*`` function):
+
+.. code-block:: python
+
+   def get_article(article_id: int, session: Session = Depends(get_session)):
+       article = session.get(Article, article_id)
+       if not article:
+           raise HTTPException(status_code=404, detail="Article not found")
+       return article
+
+.. error:: ``404 Not Found`` - If the requested resource does not exist, the error is raised by the ``get_*`` function before ownership is checked.
+
+.. error:: ``400 Bad Request`` - Missing owner field: When the object doesn't have the specified ``owner_field`` attribute. The error is logged on the server for debugging.
+
+.. error:: ``403 Forbidden`` - User doesn't own the resource: When the authenticated user's claim doesn't match the resource's owner field.
+
+.. error:: ``403 Forbidden`` - Missing JWT claim: When the JWT doesn't contain the specified ``claim_field``.
 
 Complete FastAPI Application
 -----------------------------

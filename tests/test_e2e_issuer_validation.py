@@ -10,8 +10,6 @@ import time
 import pytest
 from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
-from jwcrypto import jwk
-from jwcrypto import jwt as jwcrypto_jwt
 from axioms_fastapi import (
     init_axioms,
     require_auth,
@@ -19,24 +17,7 @@ from axioms_fastapi import (
     AxiomsHTTPException,
 )
 from axioms_fastapi.config import AxiomsConfig
-
-
-# Generate RSA key pair for testing
-def generate_test_keys():
-    """Generate RSA key pair for JWT signing and verification."""
-    key = jwk.JWK.generate(kty='RSA', size=2048, kid='test-key-id')
-    return key
-
-
-# Generate JWT token
-def generate_jwt_token(key, claims):
-    """Generate a JWT token with specified claims."""
-    token = jwcrypto_jwt.JWT(
-        header={"alg": "RS256", "kid": key.kid},
-        claims=claims
-    )
-    token.make_signed_token(key)
-    return token.serialize()
+from conftest import generate_jwt_token
 
 
 # Create test FastAPI application
@@ -49,7 +30,8 @@ def app():
     init_axioms(
         fastapi_app,
         AXIOMS_AUDIENCE='test-audience',
-        AXIOMS_JWKS_URL='https://test-domain.com/.well-known/jwks.json'
+        AXIOMS_JWKS_URL='https://test-domain.com/.well-known/jwks.json',
+        AXIOMS_DOMAIN='test-domain.com'
     )
 
     # Exception handler
@@ -71,38 +53,6 @@ def app():
         return {'message': 'Private endpoint'}
 
     return fastapi_app
-
-
-@pytest.fixture
-def client(app):
-    """Create FastAPI test client."""
-    return TestClient(app)
-
-
-@pytest.fixture
-def test_key():
-    """Generate test RSA key."""
-    return generate_test_keys()
-
-
-@pytest.fixture
-def mock_jwks_data(test_key):
-    """Generate mock JWKS data."""
-    public_key = test_key.export_public(as_dict=True)
-    jwks = {'keys': [public_key]}
-    return json.dumps(jwks).encode('utf-8')
-
-
-@pytest.fixture(autouse=True)
-def mock_jwks_fetch(monkeypatch, mock_jwks_data):
-    """Mock JWKS fetch to return test keys."""
-    from axioms_fastapi import token
-
-    class MockCacheFetcher:
-        def fetch(self, url, max_age=300):
-            return mock_jwks_data
-
-    monkeypatch.setattr(token, 'CacheFetcher', MockCacheFetcher)
 
 
 # Test classes
@@ -149,7 +99,8 @@ class TestIssuerValidation:
         assert response.status_code == 401
         data = response.json()
         assert data['error'] == 'unauthorized_access'
-        assert data['error_description'] == 'Invalid issuer'
+        # Generic error message for security (doesn't leak implementation details)
+        assert data['error_description'] == 'Invalid access token'
 
     def test_token_without_issuer_claim_when_validation_enabled(self, client, test_key, app):
         """Test that token without issuer is rejected when validation is enabled."""
@@ -169,7 +120,8 @@ class TestIssuerValidation:
         assert response.status_code == 401
         data = response.json()
         assert data['error'] == 'unauthorized_access'
-        assert data['error_description'] == 'Missing issuer claim in token'
+        # Generic error message for security (doesn't leak implementation details)
+        assert data['error_description'] == 'Invalid access token'
 
     def test_issuer_derived_from_domain(self, client, test_key, app):
         """Test that issuer is correctly derived from AXIOMS_DOMAIN."""
@@ -250,4 +202,5 @@ class TestIssuerValidation:
         assert response.status_code == 401
         data = response.json()
         assert data['error'] == 'unauthorized_access'
-        assert data['error_description'] == 'Invalid issuer'
+        # Generic error message for security (doesn't leak implementation details)
+        assert data['error_description'] == 'Invalid access token'

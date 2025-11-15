@@ -48,30 +48,42 @@ def test_import_dependencies_module():
     assert hasattr(dependencies, 'require_scopes')
     assert hasattr(dependencies, 'require_roles')
     assert hasattr(dependencies, 'require_permissions')
+    assert hasattr(dependencies, 'check_object_ownership')
 
 
-def test_import_token_module():
-    """Test that token module can be imported."""
-    from axioms_fastapi import token
-    assert token is not None
-    assert hasattr(token, 'has_valid_token')
-    assert hasattr(token, 'has_bearer_token')
+def test_import_helper_module():
+    """Test that helper module can be imported."""
+    from axioms_fastapi import helper
+    assert helper is not None
+    assert hasattr(helper, 'has_valid_token')
+    assert hasattr(helper, 'has_bearer_token')
+
+
+def test_import_middleware_module():
+    """Test that middleware module can be imported."""
+    from axioms_fastapi import middleware
+    assert middleware is not None
+    assert hasattr(middleware, 'AccessTokenMiddleware')
 
 
 def test_public_api():
     """Test that public API exports are available."""
     from axioms_fastapi import (
+        AccessTokenMiddleware,
         AxiomsError,
         AxiomsHTTPException,
         require_auth,
         require_scopes,
         require_roles,
         require_permissions,
+        check_object_ownership,
     )
 
+    assert AccessTokenMiddleware is not None
     assert AxiomsError is not None
     assert AxiomsHTTPException is not None
     assert require_auth is not None
     assert require_scopes is not None
     assert require_roles is not None
     assert require_permissions is not None
+    assert check_object_ownership is not None
