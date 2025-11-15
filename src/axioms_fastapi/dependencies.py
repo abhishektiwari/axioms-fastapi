@@ -50,7 +50,11 @@ from .helper import (
 logger = logging.getLogger(__name__)
 
 
-def require_auth(request: Request, config: AxiomsConfig = Depends(get_config)) -> Box:
+def require_auth(
+    request: Request,
+    config: AxiomsConfig = Depends(get_config),
+    safe_methods: List[str] = None,
+) -> Box:
     """FastAPI dependency to require valid JWT authentication.
 
     Validates the JWT access token in the Authorization header and returns the
@@ -59,12 +63,16 @@ def require_auth(request: Request, config: AxiomsConfig = Depends(get_config)) -
     Args:
         request: FastAPI Request object containing HTTP headers.
         config: Axioms configuration (injected via dependency).
+        safe_methods: List of HTTP methods that skip authentication.
+            Defaults to ['OPTIONS'] for CORS preflight requests.
 
     Returns:
         Box: Validated JWT token payload with claims accessible as attributes.
+            Returns empty Box for safe methods.
 
     Raises:
-        AxiomsHTTPException: If token is missing, invalid, or expired.
+        AxiomsHTTPException: If token is missing, invalid, or expired
+            (not raised for safe methods).
 
     Example::
 
@@ -72,7 +80,27 @@ def require_auth(request: Request, config: AxiomsConfig = Depends(get_config)) -
         async def protected_route(payload=Depends(require_auth)):
             user_id = payload.sub
             return {"user_id": user_id}
+
+    Example with custom safe methods::
+
+        from functools import partial
+
+        # Allow GET and OPTIONS without auth
+        require_auth_safe = partial(require_auth, safe_methods=["GET", "OPTIONS"])
+
+        @app.get("/api/public-read")
+        async def public_route(payload=Depends(require_auth_safe)):
+            # Returns empty Box for GET requests
+            return {"data": "public"}
     """
+    # Default safe methods to OPTIONS for CORS preflight
+    if safe_methods is None:
+        safe_methods = ["OPTIONS"]
+
+    # Skip authentication for safe methods
+    if request.method in safe_methods:
+        return Box()
+
     try:
         token = has_bearer_token(request)
         payload = has_valid_token(token, config)

@@ -244,6 +244,47 @@ Use the following dependencies to protect your API routes:
      - Factory function that creates a dependency to verify resource ownership. Validates that the authenticated user owns the specific resource by comparing a field on the object (default ``user``) with a JWT claim (default ``sub``). Automatically includes ``require_auth``.
      - ``get_object`` (callable that retrieves the resource), ``owner_field`` (default: ``"user"``), ``claim_field`` (default: ``"sub"``).
 
+Safe Methods (Skip Authentication)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default, ``require_auth`` skips authentication for ``OPTIONS`` requests to support CORS preflight. You can customize which HTTP methods skip authentication using the ``safe_methods`` parameter:
+
+.. code-block:: python
+
+   from functools import partial
+   from fastapi import Depends
+   from axioms_fastapi import require_auth
+
+   # Allow GET and OPTIONS without authentication
+   require_auth_safe = partial(require_auth, safe_methods=["GET", "OPTIONS"])
+
+   @app.get("/public-data")
+   async def public_data(payload=Depends(require_auth_safe)):
+       # GET requests don't require authentication
+       # payload will be an empty Box for safe methods
+       if not payload:
+           return {"data": "public content"}
+       return {"data": "personalized content", "user": payload.sub}
+
+   # Disable safe methods (require auth for all methods including OPTIONS)
+   require_auth_strict = partial(require_auth, safe_methods=[])
+
+   @app.options("/strict")
+   async def strict_options(payload=Depends(require_auth_strict)):
+       # Even OPTIONS requires authentication
+       return {"allowed_methods": ["GET", "POST"]}
+
+**Default behavior:**
+
+- ``OPTIONS`` requests skip authentication (for CORS preflight)
+- All other methods require authentication
+
+**Common use cases:**
+
+- CORS preflight: ``safe_methods=["OPTIONS"]`` (default)
+- Public read, authenticated write: ``safe_methods=["GET", "HEAD", "OPTIONS"]``
+- Strict mode: ``safe_methods=[]`` (all methods require auth)
+
 OR vs AND Logic
 ^^^^^^^^^^^^^^^
 

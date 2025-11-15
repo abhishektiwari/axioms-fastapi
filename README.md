@@ -197,6 +197,43 @@ async def get_profile(payload=Depends(require_auth)):
     }
 ```
 
+### Safe Methods (Skip Authentication for Specific HTTP Methods)
+
+By default, `OPTIONS` requests skip authentication to support CORS preflight requests. You can customize which HTTP methods skip authentication:
+
+```python
+from functools import partial
+from axioms_fastapi import require_auth
+
+# Allow GET and OPTIONS without authentication
+require_auth_safe = partial(require_auth, safe_methods=["GET", "OPTIONS"])
+
+@app.get("/public-data")
+async def public_data(payload=Depends(require_auth_safe)):
+    # GET requests don't require authentication
+    # payload will be an empty Box for safe methods
+    if not payload:
+        return {"data": "public content"}
+    return {"data": "personalized content", "user": payload.sub}
+
+# Disable safe methods (require auth for all methods including OPTIONS)
+require_auth_strict = partial(require_auth, safe_methods=[])
+
+@app.options("/strict")
+async def strict_options(payload=Depends(require_auth_strict)):
+    # Even OPTIONS requires authentication
+    return {"allowed_methods": ["GET", "POST"]}
+```
+
+**Default behavior:**
+- `OPTIONS` requests skip authentication (for CORS preflight)
+- All other methods require authentication
+
+**Common use cases:**
+- CORS preflight: `safe_methods=["OPTIONS"]` (default)
+- Public read, authenticated write: `safe_methods=["GET", "HEAD", "OPTIONS"]`
+- Strict mode: `safe_methods=[]` (all methods require auth)
+
 ### Scope-Based Authorization (OR Logic)
 
 ```python
