@@ -29,14 +29,17 @@ Unlike other DRF plugins, `axioms-fastapi` focuses exclusively on protecting res
 - Enterprise-ready defaults using current JWT and OAuth 2.1 best practices
 
 ## Features
-
 * JWT token validation with automatic public key retrieval from JWKS endpoints
 * Algorithm validation to prevent algorithm confusion attacks (only secure asymmetric algorithms allowed)
 * Issuer validation (`iss` claim) to prevent token substitution attacks
-* FastAPI dependency injection for authentication and authorization
+* Authentication classes for standard DRF integration
+* Permission classes for claim-based authorization: `scopes`, `roles`, and `permissions`
+* Object-level permission classes for resource ownership verification
+* Support for both OR and AND logic in authorization checks
+* Middleware for automatic token extraction and validation
 * Flexible configuration with support for custom JWKS and issuer URLs
+* Simple integration with Django REST Framework Resource Server or API backends
 * Support for custom claim and/or namespaced claims names to support different authorization servers
-* Async-ready and production-tested
 
 ## Installation
 
@@ -58,7 +61,8 @@ app = FastAPI()
 init_axioms(
     app,
     AXIOMS_AUDIENCE="your-api-audience",
-    AXIOMS_DOMAIN="your-auth.domain.com"
+    AXIOMS_ISS_URL="https://your-auth.domain.com",
+    AXIOMS_JWKS_URL="https://your-auth.domain.com/.well-known/jwks.json"
 )
 
 # Register exception handler for authentication/authorization errors
@@ -90,14 +94,15 @@ async def admin_route(
 The SDK supports the following configuration options:
 
 * `AXIOMS_AUDIENCE` (required): Your resource identifier or API audience
-* `AXIOMS_DOMAIN` (optional): Your auth domain - constructs issuer and JWKS URLs
-* `AXIOMS_ISS_URL` (optional): Full issuer URL for validating the `iss` claim (recommended for security)
-* `AXIOMS_JWKS_URL` (optional): Full URL to your JWKS endpoint
+* `AXIOMS_ISS_URL` (recommended): Full issuer URL for validating the `iss` claim
+* `AXIOMS_JWKS_URL` (optional): Full URL to your JWKS endpoint - if not provided, constructed from `AXIOMS_ISS_URL`
+* `AXIOMS_DOMAIN` (deprecated): Use `AXIOMS_ISS_URL` instead. If provided, constructs issuer and JWKS URLs
 
 **Configuration Hierarchy:**
 
-1. `AXIOMS_DOMAIN` → constructs → `AXIOMS_ISS_URL` (if not explicitly set)
-2. `AXIOMS_ISS_URL` → constructs → `AXIOMS_JWKS_URL` (if not explicitly set)
+1. `AXIOMS_JWKS_URL` (if explicitly set) OR
+2. `AXIOMS_ISS_URL` + `/.well-known/jwks.json` (if `AXIOMS_ISS_URL` is set) OR
+3. `https://{AXIOMS_DOMAIN}` + `/.well-known/jwks.json` (if `AXIOMS_DOMAIN` is set)
 
 ### Environment Variables
 
@@ -105,11 +110,13 @@ Create a `.env` file:
 
 ```bash
 AXIOMS_AUDIENCE=your-api-audience
-AXIOMS_DOMAIN=your-auth.domain.com
+AXIOMS_ISS_URL=https://your-auth.domain.com
 
-# OR for custom configurations:
-# AXIOMS_ISS_URL=https://your-auth.domain.com/oauth2
+# Optional - if JWKS endpoint is non-standard:
 # AXIOMS_JWKS_URL=https://your-auth.domain.com/.well-known/jwks.json
+
+# Deprecated - use AXIOMS_ISS_URL instead:
+# AXIOMS_DOMAIN=your-auth.domain.com
 ```
 
 ## Usage Examples
@@ -121,7 +128,12 @@ from fastapi import FastAPI, Depends
 from axioms_fastapi import init_axioms, require_auth, require_scopes, register_axioms_exception_handler
 
 app = FastAPI()
-init_axioms(app, AXIOMS_AUDIENCE="api.example.com", AXIOMS_DOMAIN="auth.example.com")
+init_axioms(
+    app,
+    AXIOMS_AUDIENCE="api.example.com",
+    AXIOMS_ISS_URL="https://auth.example.com",
+    AXIOMS_JWKS_URL="https://auth.example.com/.well-known/jwks.json"
+)
 
 register_axioms_exception_handler(app)
 
@@ -202,6 +214,120 @@ async def advanced_route(
     return {"data": "complex authorization"}
 ```
 
+### Object-Level Permissions (Row-Level Security)
+
+Protect individual resources based on ownership using `check_object_ownership`:
+
+```python
+from fastapi import FastAPI, Depends, HTTPException
+from sqlmodel import Field, Session, SQLModel
+from axioms_fastapi import init_axioms, check_object_ownership, register_axioms_exception_handler
+
+app = FastAPI()
+init_axioms(
+    app,
+    AXIOMS_AUDIENCE="api.example.com",
+    AXIOMS_ISS_URL="https://auth.example.com",
+    AXIOMS_JWKS_URL="https://auth.example.com/.well-known/jwks.json"
+)
+register_axioms_exception_handler(app)
+
+# SQLModel with ownership field
+class Article(SQLModel, table=True):
+    id: int = Field(primary_key=True)
+    title: str
+    content: str
+    user: str = Field(index=True)  # Owner field - matches JWT 'sub' claim
+
+def get_session():
+    # Your database session logic
+    pass
+
+def get_article(article_id: int, session: Session = Depends(get_session)):
+    article = session.get(Article, article_id)
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+    return article
+
+# Only article owner can read their article
+@app.get("/articles/{article_id}")
+async def read_article(
+    article: Article = Depends(check_object_ownership(get_article))
+):
+    # check_object_ownership verifies article.user == JWT 'sub' claim
+    return {"id": article.id, "title": article.title, "user": article.user}
+
+# Only article owner can update their article
+@app.patch("/articles/{article_id}")
+async def update_article(
+    title: str,
+    article: Article = Depends(check_object_ownership(get_article)),
+    session: Session = Depends(get_session)
+):
+    article.title = title
+    session.add(article)
+    session.commit()
+    return {"id": article.id, "title": article.title}
+```
+
+#### Custom Owner Field
+
+Use a different field name for ownership:
+
+```python
+class Comment(SQLModel, table=True):
+    id: int = Field(primary_key=True)
+    text: str
+    created_by: str = Field(index=True)  # Custom owner field name
+
+def get_comment(comment_id: int, session: Session = Depends(get_session)):
+    comment = session.get(Comment, comment_id)
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    return comment
+
+@app.patch("/comments/{comment_id}")
+async def update_comment(
+    text: str,
+    # Specify custom owner_field parameter
+    comment: Comment = Depends(check_object_ownership(get_comment, owner_field="created_by")),
+    session: Session = Depends(get_session)
+):
+    comment.text = text
+    session.commit()
+    return {"id": comment.id, "text": comment.text}
+```
+
+#### Custom Claim Field
+
+Match ownership using a different JWT claim (e.g., email):
+
+```python
+class Project(SQLModel, table=True):
+    id: int = Field(primary_key=True)
+    name: str
+    owner_email: str = Field(index=True)  # Matches JWT 'email' claim
+
+def get_project(project_id: int, session: Session = Depends(get_session)):
+    project = session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
+
+@app.get("/projects/{project_id}")
+async def read_project(
+    # Match project.owner_email with JWT 'email' claim
+    project: Project = Depends(
+        check_object_ownership(
+            get_project,
+            owner_field="owner_email",
+            claim_field="email"
+        )
+    )
+):
+    return {"id": project.id, "name": project.name, "owner_email": project.owner_email}
+```
+
 ## Custom Claim Names
 
 Support for different authorization servers with custom claim names:
@@ -210,7 +336,8 @@ Support for different authorization servers with custom claim names:
 init_axioms(
     app,
     AXIOMS_AUDIENCE="api.example.com",
-    AXIOMS_DOMAIN="auth.example.com",
+    AXIOMS_ISS_URL="https://auth.example.com",
+    AXIOMS_JWKS_URL="https://auth.example.com/.well-known/jwks.json",
     AXIOMS_ROLES_CLAIMS=["cognito:groups", "roles"],
     AXIOMS_PERMISSIONS_CLAIMS=["permissions", "cognito:roles"],
     AXIOMS_SCOPE_CLAIMS=["scope", "scp"]
@@ -226,7 +353,12 @@ from fastapi import FastAPI
 from axioms_fastapi import init_axioms, register_axioms_exception_handler
 
 app = FastAPI()
-init_axioms(app, AXIOMS_AUDIENCE="api.example.com", AXIOMS_DOMAIN="auth.example.com")
+init_axioms(
+    app,
+    AXIOMS_AUDIENCE="api.example.com",
+    AXIOMS_ISS_URL="https://auth.example.com",
+    AXIOMS_JWKS_URL="https://auth.example.com/.well-known/jwks.json"
+)
 
 # Register exception handler for Axioms errors
 register_axioms_exception_handler(app)
@@ -234,21 +366,6 @@ register_axioms_exception_handler(app)
 
 This will automatically handle both authentication (401) and authorization (403) errors with proper WWW-Authenticate headers.
 
-## Security Features
 
-* **Algorithm Validation**: Only secure asymmetric algorithms allowed (RS256, RS384, RS512, ES256, ES384, ES512, PS256, PS384, PS512)
-* **Issuer Validation**: Validates `iss` claim to prevent token substitution attacks
-* **Automatic JWKS Retrieval**: Fetches and caches public keys from JWKS endpoints
-* **Token Expiration**: Validates `exp` claim
-* **Audience Validation**: Validates `aud` claim
-* **Key ID Validation**: Validates `kid` header
-
-## License
-
-MIT
-
-## Links
-
-* Documentation: https://axioms-fastapi.abhishek-tiwari.com
-* Source Code: https://github.com/abhishektiwari/axioms-fastapi
-* Issue Tracker: https://github.com/abhishektiwari/axioms-fastapi/issues
+## Complete Example
+For a complete working example, check out the [example](example/) folder in this repository or [checkout our docs](https://axioms-fastapi.abhishek-tiwari.com/examples).
