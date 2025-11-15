@@ -9,7 +9,6 @@ import time
 import pytest
 from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
-from jwcrypto import jwk, jwt
 from axioms_fastapi import (
     require_auth,
     require_scopes,
@@ -18,71 +17,12 @@ from axioms_fastapi import (
     register_axioms_exception_handler,
 )
 from axioms_fastapi.config import init_axioms
-
-
-# Generate RSA key pair for testing
-def generate_test_keys():
-    """Generate RSA key pair for JWT signing and verification."""
-    key = jwk.JWK.generate(kty='RSA', size=2048, kid='test-key-id')
-    return key
-
-
-# Mock JWKS response
-def get_mock_jwks(key):
-    """Generate mock JWKS response."""
-    public_key = key.export_public(as_dict=True)
-    return {
-        "keys": [public_key]
-    }
-
-
-# Generate JWT token
-def generate_jwt_token(key, claims):
-    """Generate a JWT token with specified claims."""
-    token = jwt.JWT(
-        header={"alg": "RS256", "kid": key.kid},
-        claims=claims
-    )
-    token.make_signed_token(key)
-    return token.serialize()
-
-
-@pytest.fixture
-def test_key():
-    """Generate test RSA key."""
-    return generate_test_keys()
-
-
-@pytest.fixture
-def mock_jwks_data(test_key):
-    """Generate mock JWKS data."""
-    return json.dumps(get_mock_jwks(test_key)).encode('utf-8')
-
-
-@pytest.fixture(scope='function')
-def mock_jwks_fetch(monkeypatch, mock_jwks_data):
-    """Mock JWKS fetch to return test keys."""
-    import axioms_fastapi.token as token_module
-
-    # Store original class
-    original_fetcher = token_module.CacheFetcher
-
-    class MockCacheFetcher:
-        def fetch(self, url, max_age=300):
-            return mock_jwks_data
-
-    # Replace the CacheFetcher class before tests run
-    monkeypatch.setattr(token_module, 'CacheFetcher', MockCacheFetcher)
-
-    yield
-
-    # Restore original (monkeypatch should do this automatically, but being explicit)
-    monkeypatch.setattr(token_module, 'CacheFetcher', original_fetcher)
+from conftest import generate_jwt_token
 
 
 # Create test FastAPI application
 @pytest.fixture
-def app(mock_jwks_fetch):
+def app():
     """Create FastAPI test application with protected routes."""
     fastapi_app = FastAPI()
 
@@ -203,12 +143,6 @@ def app(mock_jwks_fetch):
         return {'message': 'Requires scope AND role AND permission'}
 
     return fastapi_app
-
-
-@pytest.fixture
-def client(app):
-    """Create FastAPI test client."""
-    return TestClient(app)
 
 
 # Test cases

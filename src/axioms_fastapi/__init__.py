@@ -13,6 +13,7 @@ except ImportError:
 
 from .config import init_axioms
 from .dependencies import (
+    check_object_ownership,
     require_auth,
     require_permissions,
     require_roles,
@@ -29,5 +30,6 @@ __all__ = [
     "require_scopes",
     "require_roles",
     "require_permissions",
+    "check_object_ownership",
     "init_axioms",
 ]

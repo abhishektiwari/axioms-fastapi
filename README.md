@@ -1,7 +1,5 @@
 # axioms-fastapi ![PyPI](https://img.shields.io/pypi/v/axioms-fastapi) ![Pepy Total Downloads](https://img.shields.io/pepy/dt/axioms-fastapi)
-OAuth2/OIDC authentication and authorization for FastAPI APIs. Supports authentication and claim-based fine-grained authorization (scopes, roles, permissions) using JWT tokens.
-
-Works with access tokens issued by various authorization servers including [AWS Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html), [Auth0](https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles), [Okta](https://developer.okta.com/docs/api/oauth2/), [Microsoft Entra](https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles), etc.
+OAuth2/OIDC authentication and authorization for FastAPI APIs. Supports authentication and claim-based fine-grained authorization (scopes, roles, permissions) using JWT tokens. Works with access tokens issued by various authorization servers including [AWS Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html), [Auth0](https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles), [Okta](https://developer.okta.com/docs/api/oauth2/), [Microsoft Entra](https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles), etc.
 
 > **Using Flask or Django REST Framework?** This package is specifically for FastAPI. For Flask applications, use [axioms-flask-py](https://github.com/abhishektiwari/axioms-flask-py). For DRF applications, use [axioms-drf-py](https://github.com/abhishektiwari/axioms-drf-py).
 
@@ -15,6 +13,20 @@ Works with access tokens issued by various authorization servers including [AWS 
 ![PyPI - Status](https://img.shields.io/pypi/status/axioms-fastapi)
 ![License](https://img.shields.io/github/license/abhishektiwari/axioms-fastapi)
 ![PyPI Downloads](https://img.shields.io/pepy/dt/axioms-fastapi?label=PyPI%20Downloads)
+[![CodeFactor](https://www.codefactor.io/repository/github/abhishektiwari/axioms-fastapi/badge)](https://www.codefactor.io/repository/github/abhishektiwari/axioms-fastapi)
+[![codecov](https://codecov.io/gh/abhishektiwari/axioms-fastapi/graph/badge.svg?token=FUZV5Q67E1)](https://codecov.io/gh/abhishektiwari/axioms-fastapi)
+
+## When to use `axioms-fastapi`?
+Use `axioms-fastapi` in your Django REST Framework backend to securely validate JWT access tokens issued by OAuth2/OIDC authorization servers like [AWS Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html), [Auth0](https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles), [Okta](https://developer.okta.com/docs/api/oauth2/), [Microsoft Entra](https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles), [Keyclock](https://www.keycloak.org/securing-apps/oidc-layers#_oauth21-support) etc.  Clients - such as single-page applications (React, Vue), mobile apps, or AI agents—obtain access tokens from the authorization server and send them to your backend. In response, `axioms-fastapi` fetches JSON Web Key Set (JWKS) from the issuer, validates token signatures, enforces audience/issuer claims, and provides scope, role, and permission-based authorization for your API endpoints.
+
+![Where to use Axioms package](https://static.abhishek-tiwari.com/axioms/oauth2-oidc-v3.png)
+
+## How it is different?
+Unlike other DRF plugins, `axioms-fastapi` focuses exclusively on protecting resource servers, by letting authorization servers do what they do best. This separation of concerns raises the security bar by:
+
+- Delegates authorization to battle-tested OAuth2/OIDC providers
+- Works seamlessly with any OAuth2/OIDC ID with simple configuration
+- Enterprise-ready defaults using current JWT and OAuth 2.1 best practices
 
 ## Features
 

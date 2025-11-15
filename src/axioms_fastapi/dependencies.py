@@ -1,13 +1,14 @@
 """FastAPI dependencies for authentication and authorization.
 
 This module provides FastAPI dependency functions for protecting routes with JWT-based
-authentication and authorization. Supports scope-based, role-based, and permission-based
-access control with configurable claim names for different authorization servers.
+authentication and authorization. Supports scope-based, role-based, permission-based,
+and object-level ownership access control with configurable claim names for different
+authorization servers.
 
 Example::
 
     from fastapi import FastAPI, Depends
-    from axioms_fastapi import require_auth, require_scopes, init_axioms
+    from axioms_fastapi import require_auth, require_scopes, check_object_ownership, init_axioms
 
     app = FastAPI()
     init_axioms(app, AXIOMS_AUDIENCE="api.example.com", AXIOMS_DOMAIN="auth.example.com")
@@ -19,6 +20,13 @@ Example::
     @app.get("/admin")
     async def admin_route(payload=Depends(require_auth), _=Depends(require_scopes(["admin"]))):
         return {"message": "Admin access"}
+
+    @app.patch("/articles/{article_id}")
+    async def update_article(
+        article_id: int,
+        article=Depends(check_object_ownership(get_article))
+    ):
+        return {"message": "Updated"}
 """
 
 from typing import Callable, List
@@ -28,7 +36,7 @@ from fastapi import Depends, Request
 
 from .config import AxiomsConfig, get_config
 from .error import AxiomsHTTPException
-from .token import (
+from .helper import (
     check_permissions,
     check_roles,
     check_scopes,
@@ -248,3 +256,146 @@ def require_permissions(required_permissions: List[str]) -> Callable:
             )
 
     return permission_dependency
+
+
+def check_object_ownership(
+    get_object: Callable,
+    owner_field: str = "user",
+    claim_field: str = "sub",
+) -> Callable:
+    """Create a FastAPI dependency to enforce object-level ownership permissions.
+
+    Validates that the authenticated user owns the requested object by comparing
+    a field in the object with a claim in the JWT token. This enables per-object
+    access control where users can only access resources they own.
+
+    Args:
+        get_object: Callable dependency function that retrieves the object.
+        owner_field: Field name in the object containing the owner identifier.
+            Defaults to "user".
+        claim_field: JWT claim field to compare with owner_field.
+            Defaults to "sub".
+
+    Returns:
+        Callable: FastAPI dependency function that enforces object ownership check.
+
+    Raises:
+        AxiomsHTTPException: If user doesn't own the object or fields are missing.
+
+    Example (basic usage with defaults)::
+
+        async def get_article(article_id: int):
+            article = db.query(Article).filter(Article.id == article_id).first()
+            if not article:
+                raise HTTPException(status_code=404, detail="Not found")
+            return article
+
+        @app.patch("/articles/{article_id}")
+        async def update_article(
+            article_id: int,
+            title: str,
+            article = Depends(check_object_ownership(get_article))
+        ):
+            article.title = title
+            return article
+
+    Example (custom owner field)::
+
+        @app.delete("/comments/{comment_id}")
+        async def delete_comment(
+            comment_id: int,
+            comment = Depends(check_object_ownership(get_comment, owner_field="created_by"))
+        ):
+            db.delete(comment)
+            return {"message": "Deleted"}
+
+    Example (match by email instead of sub)::
+
+        @app.patch("/users/{user_id}")
+        async def update_user(
+            user_id: int,
+            name: str,
+            user = Depends(check_object_ownership(
+                get_user,
+                owner_field="owner_email",
+                claim_field="email"
+            ))
+        ):
+            user.name = name
+            return user
+
+    Example (with SQLAlchemy)::
+
+        class Article(Base):
+            __tablename__ = "articles"
+            id = Column(Integer, primary_key=True)
+            title = Column(String)
+            user = Column(String)
+
+        def get_article(article_id: int, db: Session = Depends(get_db)):
+            article = db.query(Article).filter(Article.id == article_id).first()
+            if not article:
+                raise HTTPException(status_code=404, detail="Not found")
+            return article
+
+        @app.patch("/articles/{article_id}")
+        async def update_article(
+            article_id: int,
+            title: str,
+            article: Article = Depends(check_object_ownership(get_article)),
+            db: Session = Depends(get_db)
+        ):
+            article.title = title
+            db.commit()
+            return article
+    """
+
+    def ownership_dependency(
+        obj=Depends(get_object),
+        payload: Box = Depends(require_auth),
+        config: AxiomsConfig = Depends(get_config),
+    ):
+        """Dependency function to check object ownership."""
+        # Get owner value from object (dict or object)
+        if isinstance(obj, dict):
+            owner = obj.get(owner_field)
+        else:
+            owner = getattr(obj, owner_field, None)
+
+        # Validate owner field exists
+        if owner is None:
+            raise AxiomsHTTPException(
+                {
+                    "error": "server_error",
+                    "error_description": f"Object missing owner field: {owner_field}",
+                },
+                500,
+                get_expected_issuer(config) or "",
+            )
+
+        # Get claim value from JWT
+        claim_value = payload.get(claim_field)
+        if claim_value is None:
+            raise AxiomsHTTPException(
+                {
+                    "error": "insufficient_permission",
+                    "error_description": f"JWT missing required claim: {claim_field}",
+                },
+                403,
+                get_expected_issuer(config) or "",
+            )
+
+        # Compare owner with JWT claim
+        if owner != claim_value:
+            raise AxiomsHTTPException(
+                {
+                    "error": "insufficient_permission",
+                    "error_description": "You don't have permission to access this resource",
+                },
+                403,
+                get_expected_issuer(config) or "",
+            )
+
+        return obj
+
+    return ownership_dependency

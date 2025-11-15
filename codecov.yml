@@ -1,0 +1,2 @@
+ignore:
+  - src/axioms_fastapi/_version.py

@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean format lint test build publish docs docs-clean docs-serve docs-watch
+.PHONY: help install install-dev clean format lint test test-ci build publish docs docs-clean docs-serve docs-watch
 
 help:
 	@echo "Available targets:"
@@ -7,6 +7,7 @@ help:
 	@echo "  format        - Format code with black and ruff"
 	@echo "  lint          - Lint code with ruff"
 	@echo "  test          - Run tests with pytest"
+	@echo "  test-ci       - Run tests with coverage XML and JUnit XML reports (for CI)"
 	@echo "  build         - Build source and wheel distributions"
 	@echo "  clean         - Remove build artifacts and caches"
 	@echo "  publish       - Upload package to PyPI"
@@ -29,6 +30,10 @@ clean:
 	rm -rf .pytest_cache
 	rm -rf .ruff_cache
 	rm -rf docs/_build
+	rm -f coverage.xml
+	rm -f junit.xml
+	rm -f .coverage
+	rm -f src/axioms_fastapi/_version.py
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 
@@ -41,6 +46,9 @@ lint:
 
 test:
 	pytest
+
+test-ci:
+	pytest --cov-report=xml --junit-xml=junit.xml
 
 build: clean
 	python -m build

@@ -35,6 +35,32 @@ Works with access tokens issued by various authorization servers including `AWS 
 .. image:: https://img.shields.io/pypi/pyversions/axioms-fastapi?logo=python&logoColor=white
    :alt: Python Versions
 
+.. image:: https://www.codefactor.io/repository/github/abhishektiwari/axioms-fastapi/badge
+   :target: https://www.codefactor.io/repository/github/abhishektiwari/axioms-fastapi
+   :alt: CodeFactor
+
+.. image:: https://codecov.io/gh/abhishektiwari/axioms-fastapi/graph/badge.svg?token=FUZV5Q67E1 
+   :target: https://codecov.io/gh/abhishektiwari/axioms-fastapi
+
+When to use ``axioms-fastapi``?
+----------------------------
+
+Use ``axioms-fastapi`` in your Django REST Framework backend to securely validate JWT access
+tokens issued by OAuth2/OIDC authorization servers like `AWS Cognito <https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html>`_,
+`Auth0 <https://auth0.com/docs/secure/tokens/access-tokens/access-token-profiles>`_,
+`Okta <https://developer.okta.com/docs/api/oauth2/>`_, `Microsoft Entra <https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles>`_, `Keyclock <https://www.keycloak.org/securing-apps/oidc-layers#_oauth21-support>`_,
+etc. Clients - such as single-page applications (React, Vue), mobile apps, or AI agents—obtain access tokens from the authorization server and send them to your backend. In response, ``axioms-fastapi`` fetches JSON Web Key Set (JWKS) from the issuer, validates token signatures, enforces audience/issuer claims, and provides scope, role, and permission-based authorization for your API endpoints.
+
+.. image:: https://static.abhishek-tiwari.com/axioms/oauth2-oidc-v3.png
+   :alt: When to use Axioms package
+
+How it is different?
+--------------------
+Unlike other DRF plugins, ``axioms-fastapi`` focuses exclusively on protecting resource servers, by letting authorization servers do what they do best. This separation of concerns raises the security bar by:
+
+- Delegates authorization to battle-tested OAuth2/OIDC providers
+- Works seamlessly with any OAuth2/OIDC ID with simple configuration
+- Enterprise-ready defaults using current JWT and OAuth 2.1 best practices
 Features
 --------
 
@@ -215,11 +241,12 @@ Contents
 --------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Documentation:
 
-   examples
    api
+   examples
+   issuers
 
 Indices and tables
 ------------------
