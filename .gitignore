@@ -73,3 +73,7 @@ dmypy.json
 
 # Ruff
 .ruff_cache/
+
+# Remove SQLlitere database files
+*.sqlite3
+*.db
