@@ -8,9 +8,9 @@ For complete configuration documentation, see the Configuration section in the A
 """
 
 import logging
-import ssl
 import time
 from typing import Any, List, Optional
+from urllib.parse import urlparse
 from urllib.request import urlopen
 
 import jwt
@@ -515,6 +515,9 @@ def get_key_from_jwks_json(kid: str, config: Optional[AxiomsConfig] = None):
         data = fetcher.fetch(jwks_url, 600)
         key = jwk.JWKSet().from_json(data).get_key(kid)
         return key
+    except AxiomsError:
+        # Re-raise AxiomsError as-is (e.g., invalid URL scheme)
+        raise
     except Exception:
         raise AxiomsError(
             {
@@ -546,10 +549,28 @@ class CacheFetcher:
         if cached:
             return cached
 
-        # Fetch from URL with SSL context
+        # Validate URL scheme for security (prevent file://, ftp://, etc.)
+        parsed_url = urlparse(url)
+        if parsed_url.scheme not in ("http", "https"):
+            logger.error(
+                f"Invalid URL scheme detected: {parsed_url.scheme}. "
+                f"URL: {url}"
+            )
+            raise AxiomsError(
+                {
+                    "error": "server_error",
+                    "error_description": (
+                        "Invalid JWKS URL configuration. "
+                        "Only http and https schemes are allowed."
+                    ),
+                },
+                500,
+            )
+
+        # Fetch from URL with default secure SSL context
+        # Python's urlopen uses verified SSL by default (validates certificates)
         try:
-            context = ssl._create_unverified_context()
-            data = urlopen(url, context=context).read()
+            data = urlopen(url).read()
             cache.set("jwks" + url, data, timeout=max_age)
             return data
         except Exception as e:

@@ -511,6 +511,47 @@ class TestHasValidToken:
             with pytest.raises(AxiomsError):
                 has_valid_token(token, default_config)
 
+    def test_invalid_url_scheme_raises_error(self, monkeypatch):
+        """Test that invalid URL schemes (file://, ftp://, etc.) are rejected."""
+        from axioms_fastapi import helper
+        from axioms_fastapi.error import AxiomsError
+
+        # Import the REAL CacheFetcher class before it was mocked
+        import importlib
+        importlib.reload(helper)
+
+        # Get the real CacheFetcher
+        from axioms_fastapi.helper import CacheFetcher, cache
+
+        # Ensure cache is completely clear
+        cache._cache.clear()
+
+        fetcher = CacheFetcher()
+
+        # Test file:// scheme
+        try:
+            result = fetcher.fetch("file:///etc/passwd", max_age=300)
+            pytest.fail(f"Should have raised AxiomsError but got: {result}")
+        except AxiomsError as e:
+            assert e.status_code == 500
+            assert "Invalid JWKS URL configuration" in e.error["error_description"]
+
+        # Test ftp:// scheme
+        try:
+            result = fetcher.fetch("ftp://malicious.com/jwks.json", max_age=300)
+            pytest.fail(f"Should have raised AxiomsError but got: {result}")
+        except AxiomsError as e:
+            assert e.status_code == 500
+            assert "Invalid JWKS URL configuration" in e.error["error_description"]
+
+        # Test data:// scheme
+        try:
+            result = fetcher.fetch("data://text/plain,malicious", max_age=300)
+            pytest.fail(f"Should have raised AxiomsError but got: {result}")
+        except AxiomsError as e:
+            assert e.status_code == 500
+            assert "Invalid JWKS URL configuration" in e.error["error_description"]
+
     def test_malformed_jwt_raises_error(self, test_key, mock_urlopen, default_config):
         """Test that a malformed JWT token raises AxiomsError."""
         # Create a completely invalid token
