@@ -662,7 +662,10 @@ class TestErrorCases:
             headers={"Authorization": f"Bearer {token}"}
         )
 
-        assert response.status_code == 500
+        assert response.status_code == 400
+        data = response.json()
+        assert data["error"] == "bad_request"
+        assert "Invalid resource configuration" in data["error_description"]
 
     def test_missing_claim_in_jwt(self, client, test_key):
         """Test error when JWT doesn't have required claim."""

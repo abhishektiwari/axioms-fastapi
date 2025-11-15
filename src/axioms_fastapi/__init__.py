@@ -20,9 +20,11 @@ from .dependencies import (
     require_scopes,
 )
 from .error import AxiomsError, AxiomsHTTPException, register_axioms_exception_handler
+from .middleware import AccessTokenMiddleware
 
 __all__ = [
     "__version__",
+    "AccessTokenMiddleware",
     "AxiomsError",
     "AxiomsHTTPException",
     "register_axioms_exception_handler",

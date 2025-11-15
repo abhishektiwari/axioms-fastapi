@@ -59,9 +59,17 @@ def test_import_helper_module():
     assert hasattr(helper, 'has_bearer_token')
 
 
+def test_import_middleware_module():
+    """Test that middleware module can be imported."""
+    from axioms_fastapi import middleware
+    assert middleware is not None
+    assert hasattr(middleware, 'AccessTokenMiddleware')
+
+
 def test_public_api():
     """Test that public API exports are available."""
     from axioms_fastapi import (
+        AccessTokenMiddleware,
         AxiomsError,
         AxiomsHTTPException,
         require_auth,
@@ -71,6 +79,7 @@ def test_public_api():
         check_object_ownership,
     )
 
+    assert AccessTokenMiddleware is not None
     assert AxiomsError is not None
     assert AxiomsHTTPException is not None
     assert require_auth is not None

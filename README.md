@@ -364,7 +364,7 @@ init_axioms(
 register_axioms_exception_handler(app)
 ```
 
-This will automatically handle both authentication (401) and authorization (403) errors with proper WWW-Authenticate headers.
+This will automatically handle both authentication (`401`) and authorization (`403`) errors with proper `WWW-Authenticate` headers.
 
 
 ## Complete Example

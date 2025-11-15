@@ -565,7 +565,7 @@ Error Scenarios
 
 ``check_object_ownership`` handles various error cases:
 
-**404 Not Found** - Resource doesn't exist (handled by your ``get_*`` function):
+``404 Not Found`` - Resource doesn't exist (handled by your ``get_*`` function):
 
 .. code-block:: python
 
@@ -575,17 +575,13 @@ Error Scenarios
            raise HTTPException(status_code=404, detail="Article not found")
        return article
 
-**403 Forbidden** - User doesn't own the resource:
+.. error:: ``404 Not Found`` - If the requested resource does not exist, the error is raised by the ``get_*`` function before ownership is checked.
 
-When the authenticated user's claim doesn't match the resource's owner field.
+.. error:: ``400 Bad Request`` - Missing owner field: When the object doesn't have the specified ``owner_field`` attribute. The error is logged on the server for debugging.
 
-**500 Internal Server Error** - Missing owner field:
+.. error:: ``403 Forbidden`` - User doesn't own the resource: When the authenticated user's claim doesn't match the resource's owner field.
 
-When the object doesn't have the specified ``owner_field`` attribute.
-
-**403 Forbidden** - Missing JWT claim:
-
-When the JWT doesn't contain the specified ``claim_field``.
+.. error:: ``403 Forbidden`` - Missing JWT claim: When the JWT doesn't contain the specified ``claim_field``.
 
 Complete FastAPI Application
 -----------------------------

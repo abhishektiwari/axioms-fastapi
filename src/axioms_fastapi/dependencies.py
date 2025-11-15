@@ -29,6 +29,7 @@ Example::
         return {"message": "Updated"}
 """
 
+import logging
 from typing import Callable, List
 
 from box import Box
@@ -45,6 +46,8 @@ from .helper import (
     has_bearer_token,
     has_valid_token,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def require_auth(request: Request, config: AxiomsConfig = Depends(get_config)) -> Box:
@@ -280,7 +283,9 @@ def check_object_ownership(
         Callable: FastAPI dependency function that enforces object ownership check.
 
     Raises:
-        AxiomsHTTPException: If user doesn't own the object or fields are missing.
+        AxiomsHTTPException:
+            - 400 Bad Request: If object is missing the specified owner_field.
+            - 403 Forbidden: If JWT is missing the claim_field or user doesn't own the object.
 
     Example (basic usage with defaults)::
 
@@ -364,12 +369,16 @@ def check_object_ownership(
 
         # Validate owner field exists
         if owner is None:
+            logger.error(
+                f"Object ownership check failed: object missing owner field '{owner_field}'. "
+                f"Object type: {type(obj).__name__}"
+            )
             raise AxiomsHTTPException(
                 {
-                    "error": "server_error",
-                    "error_description": f"Object missing owner field: {owner_field}",
+                    "error": "bad_request",
+                    "error_description": "Invalid resource configuration",
                 },
-                500,
+                400,
                 get_expected_issuer(config) or "",
             )
 
