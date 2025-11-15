@@ -569,8 +569,9 @@ class CacheFetcher:
 
         # Fetch from URL with default secure SSL context
         # Python's urlopen uses verified SSL by default (validates certificates)
+        # URL scheme already validated above (only http/https allowed)
         try:
-            data = urlopen(url).read()
+            data = urlopen(url).read()  # nosec B310
             cache.set("jwks" + url, data, timeout=max_age)
             return data
         except Exception as e:
