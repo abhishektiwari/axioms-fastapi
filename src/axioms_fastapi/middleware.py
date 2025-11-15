@@ -137,7 +137,8 @@ class AccessTokenMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             logger.error(f"Failed to get Axioms configuration: {e}")
             raise Exception(
-                "🔥🔥 Axioms configuration error. Ensure init_axioms() was called before adding middleware."
+                "🔥🔥 Axioms configuration error. "
+                "Ensure init_axioms() was called before adding middleware."
             )
 
         # Validate required configuration
